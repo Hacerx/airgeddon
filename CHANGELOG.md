@@ -1,3 +1,40 @@
+### 9.22
+ - Improved certificates validations and error messages
+ - Removed useless internet access DNS resolution method for captive portal Evil Twin, now pure dnsspoof
+ - Fixed exit on tmux launch if tmux not installed
+ - Added more charset combinations for hashcat bruteforce attacks
+ - Fixed length problem on hashcat bruteforce decryption attacks
+ - Fixed handshake capture menu error
+ - Compatibility extended to Pentoo Linux
+ - Removed unneeded expect (unbuffer) dependency
+ - Added tab autocompletion for every path input
+
+### 9.21
+ - Fixed non-closing windows on some DoS pursuit mode attacks
+ - Added retrocompatibility for mdk3, added option in .airgeddonrc file to handle it
+ - Fixed bug on WEP all-in-one attack (Fake Auth) for SSIDs containing spaces
+ - Fixed repeated enterprise plain passwords captured on trophy files
+ - Added custom certificates creation for enterprise attacks
+ - Fixed error on BeEF attack using tmux
+
+### 9.20
+ - Added option to use tmux instead of xterm (Thank you to "xpz3")
+ - Added WPS null PIN attack (reaver)
+
+### 9.11
+ - Fixed error shown on enterprise attacks for some wifi cards
+ - Fixed BeEF error due forced config file changes on BeEF 0.4.7.1 and 0.4.7.2 versions
+ - Added ipv6 support for BeEF
+ - Options .airgeddonrc file now also updated on automatic update keeping user's preferences
+
+### 9.10
+ - Mdk3 replaced by Mdk4
+ - Fixed some minor bugs on enterprise plain text captured password process
+ - Fixed minor bug forcing interface mode change after smooth enterprise attack
+ - Tested compatibility with Wifislax 64-2.x and Kali 2019.x
+ - Fixed dependency problem to avoid use of xxd
+ - Routing rules adapted to work with nftables
+
 ### 9.01
  - Improvments on options environment var system
  - Minor fixes for ARM devices

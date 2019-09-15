@@ -1,7 +1,7 @@
 #airgeddon Dockerfile
 
 #Base image
-FROM kalilinux/kali-linux-docker:latest
+FROM parrotsec/parrot:latest
 
 #Credits & Data
 LABEL \
@@ -43,13 +43,13 @@ RUN \
 	iw \
 	aircrack-ng \
 	xterm \
-	iproute2
+	iproute2 \
+	pciutils
 
 #Install airgeddon internal tools
 RUN \
 	apt -y install \
 	ethtool \
-	pciutils \
 	usbutils \
 	rfkill \
 	x11-utils \
@@ -69,9 +69,11 @@ RUN \
 	crunch \
 	hashcat \
 	mdk3 \
+	mdk4 \
 	hostapd \
 	lighttpd \
 	iptables \
+	nftables \
 	ettercap-text-only \
 	sslstrip \
 	isc-dhcp-server \
@@ -79,10 +81,10 @@ RUN \
 	reaver \
 	bully \
 	pixiewps \
-	expect \
 	hostapd-wpe \
 	asleap \
-	john
+	john \
+	openssl
 
 #Install needed Ruby gems
 RUN \
@@ -119,6 +121,9 @@ COPY . /opt/airgeddon
 
 #Remove auto update
 RUN sed -i 's|AIRGEDDON_AUTO_UPDATE=true|AIRGEDDON_AUTO_UPDATE=false|' airgeddon/.airgeddonrc
+
+#Force use of iptables
+RUN sed -i 's|AIRGEDDON_FORCE_IPTABLES=false|AIRGEDDON_FORCE_IPTABLES=true|' airgeddon/.airgeddonrc
 
 #Make bash script files executable
 RUN chmod +x airgeddon/*.sh

